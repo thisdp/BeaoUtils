@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 class STimerBase{
 public:
   STimerBase(uint32_t tDuration = 0);

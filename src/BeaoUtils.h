@@ -3,3 +3,4 @@
 #include "FIFO/FIFO.h"
 #include "Logger/logger.h"
 #include "DeviceErrorManager/DevErrMgr.h"
+#include "SerialCommandHandler/SerialCommandHandler.h"

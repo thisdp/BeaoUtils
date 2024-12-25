@@ -6,12 +6,18 @@ protected:
   //状态位
   union{
     struct {
-      uint16_t run:1;
       uint16_t alarmReset:1;    //复位报警
-      uint16_t recording:1;
-      uint16_t reserved:13;     //保留
+      uint16_t reserved1:15;    //保留
     };
-    uint16_t state;              // 通过这个变量访问整个状态
+    uint16_t rwState;              //外部可读写状态
+  };
+  union{
+    struct {
+      uint16_t run:1;           //运行中
+      uint16_t recording:1;     //记录中
+      uint16_t reserved2:14;    //保留
+    };
+    uint16_t rState;  //外部只读状态
   };
 
   int8_t pinENA;
@@ -29,6 +35,12 @@ public:
   static constexpr uint8_t ENA = 0;
   static constexpr uint8_t ENB = 1;
   static constexpr int8_t encoderTimingTore = 5;
+  uint16_t &getReadWriteStateFlagRef(){
+    return rwState;
+  }
+  uint16_t &getReadOnlyStateFlagRef(){
+    return rState;
+  }
   EncoderCounter(const char *periCustomName, uint8_t rA, uint8_t rB) :
     BasicIndustrialPeripheral(PeriType),
     pinENA(rA),
@@ -36,6 +48,7 @@ public:
     encoderTiming(0),
     responseTimer(1000)
   {
+    periName = periCustomName,
     clear();
   }
   bool setRun(bool state){

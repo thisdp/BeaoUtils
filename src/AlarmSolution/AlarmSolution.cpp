@@ -1,5 +1,5 @@
 #include "AlarmSolution.h"
-#include "../AlarmManager/AlarmDefinition.h"
+#include "../Peripheral/AlarmDefinition.h"
 
 // 构造函数初始化成员变量
 AlarmSolution::AlarmSolution(uint8_t argMaxContinuousSolvingTime, uint32_t argMinAllowAlarmDuration) :

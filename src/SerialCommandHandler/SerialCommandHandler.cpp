@@ -159,14 +159,22 @@ bool SerialCommandHandler::processSerialCommand(){
 bool SerialCommandHandler::getParameterInteger(int32_t index, int32_t &value){
 	if(!currentCommand.hasCommand()) return false;
 	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-	value = stol(currentCommand.blocks.at(index).c_str());
+	try {
+		value = stol(currentCommand.blocks.at(index).c_str());
+	} catch (...) {
+		return false;
+	}
 	return true;
 }
 
 bool SerialCommandHandler::getParameterUnsignedInteger(int32_t index, uint32_t &value){
 	if(!currentCommand.hasCommand()) return false;
 	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-	value = stoul(currentCommand.blocks.at(index).c_str());
+	try {
+		value = stoul(currentCommand.blocks.at(index).c_str());
+	} catch (...) {
+		return false;
+	}
 	return true;
 }
 
@@ -174,7 +182,11 @@ bool SerialCommandHandler::getParameterUnsignedInteger(int32_t index, uint32_t &
 bool SerialCommandHandler::getParameterFloat(int32_t index, float &value){
 	if(!currentCommand.hasCommand()) return false;
 	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-	value = atof(currentCommand.blocks.at(index).c_str());
+	try {
+		value = atof(currentCommand.blocks.at(index).c_str());
+	} catch (...) {
+		return false;
+	}
 	return true;
 }
 

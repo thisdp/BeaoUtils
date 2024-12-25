@@ -12,6 +12,12 @@ bool STimerBase::startIfNotActivated(){
     activated = true;
     return true;
 }
+bool STimerBase::startIfNotRunning(){
+    if(activated && !checkTimedOut()) return true;
+    startTime = getCurrentTime();
+    activated = true;
+    return true;
+}
 bool STimerBase::restart(){
     restartTimes++;
     return start();
@@ -26,6 +32,9 @@ bool STimerBase::stop(){
 bool STimerBase::isActivated(){
     return activated;
 }
+uint32_t STimerBase::getPassedTime(){
+    return getCurrentTime()-startTime;
+}
 uint32_t STimerBase::getStartTime(){
     return startTime;
 }
@@ -33,7 +42,7 @@ void STimerBase::setDuration(uint32_t tDuration){
     duration = tDuration;
 }
 bool STimerBase::checkTimedOut(){
-    return (getCurrentTime()-startTime >= duration);
+    return (getPassedTime() >= duration);
 }
 
 //STimer

@@ -5,11 +5,13 @@ public:
   STimerBase(uint32_t tDuration = 0);
   bool start();
   bool startIfNotActivated();
+  bool startIfNotRunning();
   bool restart();
   void clearRestartTimes();
   bool stop();
   bool isActivated();
   uint32_t getStartTime();
+  uint32_t getPassedTime();
   void setDuration(uint32_t tDuration);
   bool checkTimedOut();
   virtual uint32_t getCurrentTime() = 0;

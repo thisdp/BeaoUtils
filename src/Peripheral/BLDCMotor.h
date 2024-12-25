@@ -7,13 +7,19 @@ protected:
   //状态位
   union{
     struct {
-      uint16_t run:1;
       uint16_t alarmReset:1;    //复位报警
-      uint16_t enable:1;
-      uint16_t direction:1;
-      uint16_t reserved:12;     //保留
+      uint16_t reserved1:15;    //保留
     };
-    uint16_t state;              // 通过这个变量访问整个状态
+    uint16_t rwState;              //外部可读写状态
+  };
+  union{
+    struct {
+      uint16_t run:1;           //运行中
+      uint16_t enable:1;        //使能
+      uint16_t direction:1;     //方向
+      uint16_t reserved2:13;    //保留
+    };
+    uint16_t rState;  //外部只读状态
   };
 
   IODigitalWrite ioWrite;  //默认使用的digitalWrite
@@ -30,8 +36,11 @@ protected:
 
 
 public:
-  uint16_t &getStateFlagRef(){
-    return state;
+  uint16_t &getReadWriteStateFlagRef(){
+    return rwState;
+  }
+  uint16_t &getReadOnlyStateFlagRef(){
+    return rState;
   }
   static constexpr uint8_t PeriType = PeripheralType::BLDCMotor;
 
@@ -93,6 +102,7 @@ public:
   bool hasHardwareAlarm(){
     return pinAlarm != -1 ? ioRead(pinAlarm) : false;
   }
+  //报警解决
   bool isWaitingSolveAlarm(){
     return alarmStep == AlarmSolutionStep::Alarm;
   }
@@ -115,7 +125,7 @@ public:
     }
     bool alarm = hasHardwareAlarm();
     if(alarmStep == AlarmSolutionStep::Idle){ //报警解决器空闲
-      if(alarm && getAlarm() != AlarmType::NoAlarm){  //第一次遇到报警
+      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
         alarmStep = AlarmSolutionStep::Alarm; //出现报警
       }
     }else{ //如果alarmStep表明非空闲，则尝试解决报警

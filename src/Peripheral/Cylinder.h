@@ -9,7 +9,7 @@ protected:
     struct {
       uint16_t alarmReset:1;    //复位报警
       uint16_t manualState:1;   //手动状态
-      uint16_t reserved:14;      //保留
+      uint16_t reserved1:14;    //保留
     };
     uint16_t rwState;              //外部可读写状态
   };
@@ -21,6 +21,7 @@ protected:
       uint16_t autoState:1;     //自动状态
       uint16_t atHome:1;        //气缸在原点
       uint16_t atMove:1;        //气缸在动点
+      uint16_t reserved2:10;      //保留
     };
     uint16_t rState;  //外部只读状态
   };
@@ -58,8 +59,8 @@ public:
       const char *periCustomName,
       int8_t execPin,
       int8_t inputHome = -1, int8_t inputMove = -1,
-      int32_t timeGoHomeDelay = 0, int32_t timeGoMoveDelay = 0,
-      int32_t timeGoHomeTimeOut = 3000, int32_t timeGoMoveTimeOut = 3000
+      uint32_t timeGoHomeDelay = 0, uint32_t timeGoMoveDelay = 0,
+      uint32_t timeGoHomeTimeOut = 3000, uint32_t timeGoMoveTimeOut = 3000
     ) :
       BasicIndustrialPeripheral(PeriType),
       manualState(false),
@@ -67,7 +68,11 @@ public:
       run(false),
       pinCylinder(execPin),
       pinHome(inputHome),
-      pinMove(inputMove)
+      pinMove(inputMove),
+      goHomeDelayTimer(timeGoHomeDelay),
+      goMoveDelayTimer(timeGoMoveDelay),
+      goHomeTimeOutTimer(timeGoHomeTimeOut),
+      goMoveTimeOutTimer(timeGoMoveTimeOut)
   {
     lastState = false;
     periName = periCustomName;
@@ -140,14 +145,15 @@ public:
         lastState = currentState;
       }
       if(currentState){ //去动点
-        if(homeState || !moveState){  //如果仍然在原点，或者没有去动点
+        if(homeState || (!moveState && !(forceSuccessGoMoveTimeout && atMove))){  //如果仍然在原点，或者没有去动点（如果打开了强制到达动点，并且已经到达动点，则无视moveState）
           atMove = false;
           goMoveTimeOutTimer.startIfNotActivated();
           if(goMoveTimeOutTimer.checkTimedOut()){ //如果超时
+            goMoveTimeOutTimer.stop();
             if(homeState){  //如果在原点
               setAlarm(AlarmType::CylinderGoMoveButHasHome);  //报警
             }else if(!moveState){ //如果没有到达动点
-              if(forceSuccessGoMoveTimeout){ //如果启用强制成功
+              if(forceSuccessGoMoveTimeout){ //如果启用强制到达
                 atMove = true;  //强制到达动点
               }else{
                 setAlarm(AlarmType::CylinderGoMoveButNoMove); //报警
@@ -160,20 +166,22 @@ public:
             goMoveTimeOutTimer.stop();
             goMoveDelayTimer.startIfNotActivated();
             if(goMoveDelayTimer.checkTimedOut()){
+              goMoveDelayTimer.stop();
               atMove = true;  //到达动点
               setNotify(true);
             }
           }
         }
       }else{  //去原点
-        if(moveState || !homeState){  //如果仍然在动点，或者没有去原点
+        if(moveState || (!homeState && !(forceSuccessGoHomeTimeout && atHome))){  //如果仍然在动点，或者没有去原点（如果打开了强制到达原点，并且已经到达原点，则无视homeState）
           atHome = false;
           goHomeTimeOutTimer.startIfNotActivated();
           if(goHomeTimeOutTimer.checkTimedOut()){ //如果超时
+            goHomeTimeOutTimer.stop();
             if(moveState){  //如果在动点
               setAlarm(AlarmType::CylinderGoHomeButHasMove);  //报警
             }else if(!homeState){ //如果没有到达原点
-              if(forceSuccessGoHomeTimeout){ //如果启用强制成功
+              if(forceSuccessGoHomeTimeout){ //如果启用强制到达
                 atHome = true;  //强制到达原点
               }else{
                 setAlarm(AlarmType::CylinderGoHomeButNoHome); //报警
@@ -186,6 +194,7 @@ public:
             goHomeTimeOutTimer.stop();
             goHomeDelayTimer.startIfNotActivated();
             if(goHomeDelayTimer.checkTimedOut()){
+              goHomeDelayTimer.stop();
               atHome = true;  //到达原点
               setNotify(true);
             }

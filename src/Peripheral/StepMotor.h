@@ -7,21 +7,28 @@ protected:
   //状态位
   union{
     struct {
-      uint16_t run:1;
       uint16_t alarmReset:1;    //复位报警
-      uint16_t enable:1;
-      uint16_t direction:1;
-      uint16_t reserved:12;     //保留
+      uint16_t reserved1:15;    //保留
     };
-    uint16_t state;              // 通过这个变量访问整个状态
+    uint16_t rwState;              //外部可读写状态
+  };
+  union{
+    struct {
+      uint16_t run:1;           //运行中
+      uint16_t enable:1;        //使能
+      uint16_t direction:1;     //方向
+      uint16_t reserved2:13;    //保留
+    };
+    uint16_t rState;  //外部只读状态
   };
 
   int8_t pinEnable;
   int8_t pinDirection;
   int8_t pinPulse;
   int8_t pinAlarm;
-  int32_t stepAccumlator;
+  volatile int32_t stepAccumlator;
 
+  bool busyState;
   bool pulseState;
   uint8_t edgeMode;
   uint8_t alarmStep;
@@ -42,6 +49,12 @@ public:
   static constexpr uint16_t ASS_WaitEnable = 6;
   static constexpr uint16_t ASS_WaitAlarmRecover = 7;
   MSTimer alarmSolutionTimer;
+  uint16_t &getReadWriteStateFlagRef(){
+    return rwState;
+  }
+  uint16_t &getReadOnlyStateFlagRef(){
+    return rState;
+  }
   StepMotor(
       const char *periCustomName,
       int8_t pEnable = -1,
@@ -63,8 +76,8 @@ public:
     periName = periCustomName;
     ioWrite = gDigitalWrite;
     ioRead = gDigitalRead;
-    ioWrite(pinEnable,LOW);
-    ioWrite(pinDirection,LOW);
+    setEnabled(false);
+    setDirection(false);
   }
   bool setRun(bool state){
     run = state;
@@ -72,12 +85,24 @@ public:
   }
   void setEnabled(bool enState){
     enable = enState;
-    ioWrite(pinEnable,!enState);  //低电平有效
+    ioWrite(pinEnable,enState);  //高电平有效
     resetPulseState();
+  }
+  bool isEnabled(){
+    return enable;
   }
   void setDirection(bool dir){
     direction = dir;
     ioWrite(pinDirection,dir);
+  }
+  bool getDirection(){
+    return direction;
+  }
+  bool isBusy(){
+    return busyState;
+  }
+  void setBusy(bool state){
+    busyState = state;
   }
   inline bool flipPulse(){
     if(!run) return false;
@@ -106,15 +131,10 @@ public:
     if(edgeMode == EdgeMode_Both) return;
     pulseState = !edgeMode; //复位脉冲电平状态
   }
-  bool getEnabled(){
-    return enable;
-  }
-  bool getDirection(){
-    return direction;
-  }
   bool hasHardwareAlarm(){
     return pinAlarm != -1 ? ioRead(pinAlarm) : false;
   }
+  //报警解决
   bool isWaitingSolveAlarm(){
     return alarmStep == AlarmSolutionStep::Alarm;
   }
@@ -137,7 +157,7 @@ public:
     }
     bool alarm = hasHardwareAlarm();
     if(alarmStep == AlarmSolutionStep::Idle){ //报警解决器空闲
-      if(alarm && getAlarm() != AlarmType::NoAlarm){  //第一次遇到报警
+      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
         alarmStep = AlarmSolutionStep::Alarm; //出现报警
       }
     }else{ //如果alarmStep表明非空闲，则尝试解决报警

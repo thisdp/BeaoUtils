@@ -9,9 +9,13 @@ Logger globalPDL;  //global Peripheral Debug Logger
 
 class BasicIndustrialPeripheral;
 typedef void(*BasicIndustrialPeripheralCallBack)(BasicIndustrialPeripheral *peri, uint16_t oldAlarm);
+#if defined(ESP32)
 typedef void(*IODigitalWrite)(uint8_t pin, uint8_t state);
 typedef int(*IODigitalRead)(uint8_t pin);
-
+#else
+typedef void(*IODigitalWrite)(uint32_t pin, uint32_t state);
+typedef int(*IODigitalRead)(uint32_t pin);
+#endif
 IODigitalWrite gDigitalWrite = digitalWrite;  //默认使用的digitalWrite
 IODigitalRead gDigitalRead = digitalRead;     //默认使用的digitalRead
 

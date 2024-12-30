@@ -6,6 +6,7 @@
 #include "MemoryController/MemoryController.h"
 #include "AverageFilter/AverageFilter.h"
 #include "ProgramStepManager/ProgramStepManager.h"
+//#include "CANTP/CANTP.h"
 #ifdef Beao_Industry_Peripheral
 #include "Peripheral/AlarmManager.h"
 #include "Peripheral/AlarmDefinition.h"

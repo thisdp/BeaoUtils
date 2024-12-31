@@ -25,7 +25,7 @@ public:
       front = (front + 1) % SIZE;
       return true;
     }
-    bool dequeue(T *item){
+    bool dequeue(T *&item){
       if (isEmpty()) return false;
       item = &(data[front]);
       front = (front + 1) % SIZE;
@@ -86,7 +86,7 @@ public:
       front = (front + 1) % SIZE;
       return true;
     }
-    bool dequeue(T *item){
+    bool dequeue(T *&item){
       if (isEmpty()) return false;
       item = &(data[front]);
       front = (front + 1) % SIZE;

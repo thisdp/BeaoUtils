@@ -156,8 +156,13 @@ public:
 #endif
     inline uint8_t *getData() { return data; }
     inline void clear() { memset(this, 0, sizeof(CANMessage)); };
+#if defined(ESP32)
     inline void setExtend(bool isExtend) { isExtendPack = isExtend; }
     inline void setRemote(bool isRemote) { isRemotePack = isRemote; }
+#else
+    inline void setExtend(bool isExtend) { isExtendPack = isExtend?CAN_ID_EXT:CAN_ID_STD; }
+    inline void setRemote(bool isRemote) { isRemotePack = isRemote?CAN_RTR_REMOTE:CAN_RTR_DATA; }
+#endif
     inline void setIdentifier(uint32_t id, uint32_t extID = 0) { identifier = id; extIdentifier = extID; }
     inline void setIdentifier(CANTPFrameID &id) { identifier = (id.packType<<8)+id.identifier; extIdentifier = id.extIdentifier; }
     inline void setExtIdentifier(uint32_t extID) { extIdentifier = extID; }
@@ -168,6 +173,11 @@ public:
     inline uint32_t getExtIdentifier() { return extIdentifier; }
     inline uint32_t getCompleteIdentifier() { return (identifier << 11) + extIdentifier; }
     inline uint8_t getDataLength() { return dataLength; }
+    CANMessage &operator=(CANMessage& other){
+        if (this == &other) return *this; // 防止自我赋值
+        memcpy(this, &other, sizeof(CANMessage));
+        return *this;
+    }
 };
 #pragma pack(pop)
 /********************CANTP帧格式********************/

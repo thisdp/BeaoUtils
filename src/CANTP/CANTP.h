@@ -12,6 +12,8 @@
 using namespace std;
 
 /****************************/
+CANMessage GlobalDebugMsg;
+CAN_TxHeaderTypeDef txHead_gd;
 class HardwareCAN { //STM32 CAN硬件实现
 private:
 #if defined(ESP32)
@@ -42,6 +44,11 @@ public:
     }
     bool isTXEmpty() {
         return txMessage.length() == 0 && getPendingTXMessages() == 0;
+    }
+    bool receive(CANMessage &msg) {
+        if (rxMessage.isEmpty()) return false;
+        rxMessage.dequeue(msg);
+        return true;
     }
     bool send(uint32_t identifier, uint8_t* data, uint8_t length, bool isRemote = false, bool isExtend = false, uint32_t extIdentifier = 0){ // 发送数据帧/远程帧/扩展帧
         if (!availableForWrite()) return false;
@@ -82,6 +89,8 @@ public:
                 CANMessage* txMsg;
                 txMessage.dequeue(txMsg);
                 txMsg->writeHeadTo(&txHead);
+                GlobalDebugMsg = *txMsg;
+                txHead_gd = txHead;
                 uint32_t txUsingMailBox;
                 HAL_CAN_AddTxMessage(can, &txHead, txMsg->data, &txUsingMailBox);
             }
@@ -231,6 +240,7 @@ public:
                     txMsg.clear();
                     CANTPFrameID frameIdentifier(CANTP_UID_ARBITRATION, uniqueID.getRaw(i));
                     txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
                     txMsg.setExtend(false);
                     txMsg.setRemote(true);
                     hwCAN->send(txMsg); //发送
@@ -244,6 +254,7 @@ public:
                         txMsg.clear();
                         CANTPFrameID frameIdentifier(CANTP_DISCONNECT, packIdentifier);
                         txMsg.setIdentifier(frameIdentifier);
+                        txMsg.setDataLength(0);
                         txMsg.setExtend(false);
                         txMsg.setRemote(true);
                         hwCAN->send(txMsg); //发送Disconnect
@@ -255,6 +266,7 @@ public:
                 txMsg.clear();
                 CANTPFrameID frameIdentifier(CANTP_CONNECT, packIdentifier);
                 txMsg.setIdentifier(frameIdentifier);
+                txMsg.setDataLength(0);
                 txMsg.setExtend(false);
                 txMsg.setRemote(true);
                 hwCAN->send(txMsg); //发送Connect
@@ -281,6 +293,7 @@ public:
         txMsg.clear();
         CANTPFrameID frameIdentifier(CANTP_CONNECT_REQUEST, deviceID);  //预使用指定ID
         txMsg.setIdentifier(frameIdentifier);
+        txMsg.setDataLength(0);
         txMsg.setExtend(false);
         txMsg.setRemote(true);
         hwCAN->send(txMsg); //发送Connect Request
@@ -292,6 +305,10 @@ public:
     }
     void update() {
         hwCAN->update();
+        while (hwCAN->available()) {
+            hwCAN->receive(rxMsg);
+            onMessageReceived();
+        }
         switch (connection) {
         case CANTPConnState::DISCONNECTED:  //如果已断开连接
             if (reconnectTimer.checkTimedOut()) {
@@ -312,6 +329,7 @@ public:
                     txMsg.clear();
                     CANTPFrameID frameIdentifier(CANTP_HEARTBEAT, deviceID);
                     txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
                     txMsg.setExtend(false);
                     txMsg.setRemote(true);
                     hwCAN->send(txMsg); //发送Heart Beat
@@ -358,11 +376,15 @@ private:
     CANMessage txMsg;
     
 public:
+    uint32_t receiveTimes;
     CANTPServer(HardwareCAN& canPhy, uint8_t staticDevices){  //创建固定数量的设备列表
         staticDevicesCount = staticDevices;
         hwCAN = &canPhy;
         deviceList.emplace(0, this);    //正在连接的设备
         for (uint8_t i = 1; i <= staticDevicesCount; i++) deviceList.emplace(i, this);
+    }
+    void begin(){
+        receiveTimes = 0;
     }
     void loadDeviceList() {
 
@@ -437,6 +459,7 @@ public:
                     txMsg.clear();
                     CANTPFrameID frameIdentifier(CANTP_CONNECT_ALLOW,0);
                     txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
                     txMsg.setExtend(false); //标准帧
                     txMsg.setRemote(false); //数据帧
                     hwCAN->send(txMsg); //发送接受连接回包
@@ -465,6 +488,7 @@ public:
                     txMsg.clear();
                     CANTPFrameID frameIdentifier(CANTP_ASSIGNED_ID, id);
                     txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
                     txMsg.setExtend(false); //标准帧
                     txMsg.setRemote(false); //数据帧
                     hwCAN->send(txMsg); //发送回获取到的CAN ID
@@ -477,6 +501,7 @@ public:
                     txMsg.clear();
                     CANTPFrameID frameIdentifier(CANTP_CONNECTION_DONE, ConnectingDevice.getDeviceID());
                     txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
                     txMsg.setExtend(false); //标准帧
                     txMsg.setRemote(false); //数据帧
                     hwCAN->send(txMsg); //向指定设备发送Connect Done
@@ -505,6 +530,7 @@ public:
                         txMsg.clear();
                         CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
                         txMsg.setIdentifier(frameIdentifier);
+                        txMsg.setDataLength(0);
                         txMsg.setExtend(false); //标准帧
                         txMsg.setRemote(false); //数据帧
                         hwCAN->send(txMsg); //向指定设备发送Connect Lost
@@ -519,6 +545,7 @@ public:
                         txMsg.clear();
                         CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
                         txMsg.setIdentifier(frameIdentifier);
+                        txMsg.setDataLength(0);
                         txMsg.setExtend(false); //标准帧
                         txMsg.setRemote(false); //数据帧
                         hwCAN->send(txMsg); //向指定设备发送Connect Lost
@@ -530,7 +557,11 @@ public:
     }
     void update() {   //处理消息
         hwCAN->update();
-        /*for (auto& kv : deviceList) {
+        while (hwCAN->available()) {
+            hwCAN->receive(rxMsg);
+            onMessageReceived();
+        }
+        for (auto& kv : deviceList) {
             if (kv.first != 0) {
                 if (kv.second.getConnectionState() == CANTPConnState::CONNECTED) {  //如果已连接
                     if (kv.second.isDesynced()) {   //如果设备丢失连接过久
@@ -538,6 +569,6 @@ public:
                     }
                 }
             }
-        }*/
+        }
     }
 };

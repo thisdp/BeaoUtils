@@ -27,7 +27,7 @@ public:
     }
     bool dequeue(T *item){
       if (isEmpty()) return false;
-      item = data[front];
+      item = &(data[front]);
       front = (front + 1) % SIZE;
       return true;
     }
@@ -88,7 +88,7 @@ public:
     }
     bool dequeue(T *item){
       if (isEmpty()) return false;
-      item = data[front];
+      item = &(data[front]);
       front = (front + 1) % SIZE;
       return true;
     }
@@ -105,6 +105,6 @@ public:
     }
     inline int length() { return rear>=front?rear-front:SIZE-front+rear; }
     inline bool isFull(){ return length() == SIZE; }
-    inline bool isEmpty(){ return isEmpty(); }
+    inline bool isEmpty(){ return length() == 0; }
     inline int emptyLength(){ return SIZE - length(); }
 };

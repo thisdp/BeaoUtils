@@ -1,5 +1,15 @@
 #pragma once
 #include <Arduino.h>
+#include <vector>
+#include <cstring>
+#include "../Logger/Logger.h"
+Logger globalCANTPLogger;  //global CANTP Debug Logger
+bool setCANTPDebugStream(Stream &stream){ //设置全局调试输出流
+    globalCANTPLogger.setStream(stream);
+    return true;
+};
+
+using namespace std;
 // CANTP协议定义
 /*
 如果设备为 断开连接 状态，则等待一段时间后主动发起 连接请求指令，并且进入 正在连接 状态
@@ -68,6 +78,45 @@ public:
     uint8_t canType : 4;
 };
 
+/*
+CANTP数据包组成:
+    CANTPFrame ID   (对应Identifier段)
+    CANTPFrame Data (对应Data段)
+通信属性:
+    MTU: 最大报文长度 (由所使用的CAN协议决定，也可以手动指定，但是必须低于所使用的CAN支持的最大长度，CAN2.0B为8字节，CANFD为64字节)
+    CANType: CAN/CANFD
+*/
+// CAN帧标识符及包类型
+class CANTPFrameID {
+public:
+    uint32_t extIdentifier  : 18;
+    uint32_t identifier     : 8;
+    uint32_t packType       : 3; // 使用3位表示包类型
+    uint32_t reserved       : 3;
+    CANTPFrameID();
+    CANTPFrameID(uint8_t id, uint8_t pType, uint32_t extID = 0);
+};
+CANTPFrameID::CANTPFrameID() {}
+CANTPFrameID::CANTPFrameID(uint8_t pType, uint8_t id, uint32_t extID) : packType(pType), identifier(id), extIdentifier(extID) {}
+
+// CAN帧数据部分
+class CANTPFrameData {
+public:
+    uint8_t totalFrames;  // 总包数
+    uint8_t frameNumber;  // 当前包编号
+    uint8_t data[CANFrameDataLength]; // 数据部分，数据包长度为MTU
+};
+
+class CANTPFrame {
+public:
+    CANTPFrame(CANTPFrameID fID, CANTPFrameData fData, uint8_t length);
+    CANTPFrameID id;
+    CANTPFrameData data;
+    uint8_t dataLength;
+};
+CANTPFrame::CANTPFrame(CANTPFrameID fID, CANTPFrameData fData, uint8_t length) : id(fID), data(fData), dataLength(length) {}
+
+
 /*CAN消息*/
 #pragma pack(push)
 #pragma pack(1)
@@ -105,6 +154,7 @@ public:
     inline void readDataFrom(uint8_t* readData, uint8_t size = CANFrameMaxLength) { memcpy(data, readData, size); }
     inline void writeDataTo(uint8_t* writeData, uint8_t size = CANFrameMaxLength) { memcpy(writeData, data, size); }
 #endif
+    inline uint8_t *getData() { return data; }
     inline void clear() { memset(this, 0, sizeof(CANMessage)); };
     inline void setExtend(bool isExtend) { isExtendPack = isExtend; }
     inline void setRemote(bool isRemote) { isRemotePack = isRemote; }
@@ -117,7 +167,7 @@ public:
     inline uint32_t getIdentifier() { return identifier; }
     inline uint32_t getExtIdentifier() { return extIdentifier; }
     inline uint32_t getCompleteIdentifier() { return (identifier << 11) + extIdentifier; }
-    inline void getDataLength(uint32_t dataLen) { dataLength = dataLen; }
+    inline uint8_t getDataLength() { return dataLength; }
 };
 #pragma pack(pop)
 /********************CANTP帧格式********************/
@@ -137,42 +187,23 @@ Data帧:
 /*Packs*/
 class CANTP_ShortPack { // 短数据包
 private:
-    uint16_t functionID;
-    uint16_t startAddr;
-    uint32_t data;
+    uint8_t data[CANFrameMaxLength - 1];
 public:
-    CANTP_ShortPack(uint16_t functionID = 0, uint16_t startAddr = 0, uint32_t data = 0) {
-        this->functionID = functionID;
-        this->startAddr = startAddr;
-        this->data = data;
-    }
-    void setFunctionID(uint16_t functionID) { this->functionID = functionID; }
-    uint16_t getFunctionID() const { return functionID; }
-    void setStartAddress(uint16_t startAddr) { this->startAddr = startAddr; }
-    uint16_t getStartAddress() const { return startAddr; }
-    void setData(uint32_t data) { this->data = data; }
-    uint32_t getData() const { return data; }
+    void setData(uint8_t *pData, uint8_t len) { memcpy(data, pData, len); }
+    uint8_t *getData() { return data; }
 };
 
 class CANTP_PackHead { // 长数据包头
 private:
-    uint16_t functionID;
-    uint16_t startAddr;
-    uint16_t dataLength;    //总数据长度
+    uint16_t totalLength;    //总数据长度
     uint16_t packCount;
 public:
-    CANTP_PackHead(uint16_t functionID = 0, uint16_t startAddr = 0, uint16_t dataLength = 0, uint16_t packCount = 0) {
-        this->functionID = functionID;
-        this->startAddr = startAddr;
-        this->dataLength = dataLength;
+    CANTP_PackHead(uint16_t dataLength = 0, uint16_t packCount = 0) {
+        this->totalLength = dataLength;
         this->packCount = packCount;
     }
-    void setFunctionID(uint16_t functionID) { this->functionID = functionID; }
-    uint16_t getFunctionID() const { return functionID; }
-    void setStartAddress(uint16_t startAddr) { this->startAddr = startAddr; }
-    uint16_t getStartAddress() const { return startAddr; }
-    void setDataLength(uint16_t dataLength) { this->dataLength = dataLength; }
-    uint16_t getDataLength() const { return dataLength; }
+    void setTotalLength(uint16_t length) { this->totalLength = length; }
+    uint16_t getTotalLength() const { return totalLength; }
     void setPackCount(uint16_t packCount) { this->packCount = packCount; }
     uint16_t getPackCount() const { return packCount; }
 };
@@ -188,11 +219,124 @@ public:
     }
     void setPackIndex(uint16_t packIndex) { this->packIndex = packIndex; }
     uint16_t getPackIndex() { return this->packIndex; }
-    void setData(uint16_t *data, uint16_t size){
+    void setData(uint8_t *data, uint16_t size){
         memcpy(this->data, data, size);
     }
     uint8_t *getData(){
         return data;
     }
 };
+
+class CANTP_MessageCodec {  //数据包编解码器
+protected:
+    // 接收缓存
+    uint16_t rxCount;
+    uint16_t rxDataSize;
+    vector<uint8_t> rxData;
+    // 发送缓存
+    uint16_t txCounter;     //发送计数器
+    uint16_t txDataSize;    //数据长度
+    uint8_t *txData;        //数据地址
+
+    uint16_t mtuSize;   //MTU大小
+    uint8_t deviceID;   //设备ID
+public:
+    CANTP_MessageCodec(){
+        txData = nullptr;
+        txDataSize = 0;
+        txCounter = 0;
+        rxData.reserve(16);  //16个字节
+    }
+    void setMTUSize(uint16_t mtu){
+        mtuSize = mtu;
+    }
+    void setDeviceID(uint8_t devID){
+        deviceID = devID;
+    }
+    void readRXMessage(CANMessage &rxMsg){
+        if(rxMsg.isRemote()) return;   //只解析数据帧
+        uint32_t canIdentifier = rxMsg.getCompleteIdentifier();
+        uint8_t packType = ((CANTPFrameID*)&canIdentifier)->packType;
+        uint8_t packIdentifier = ((CANTPFrameID*)&canIdentifier)->identifier;
+        switch(packType){   //数据包解码
+            case CANTP_SHORT_DATA:
+                //onReceived
+                break;
+            case CANTP_DATA_HEAD:{
+                if(rxMsg.getDataLength() != sizeof(CANTP_PackHead)) return; //长数据包头长度错误
+                CANTP_PackHead *head = (CANTP_PackHead*)rxMsg.getData();    //强制转换
+                rxDataSize = head->getTotalLength();    //数据总长度
+                rxCount = head->getPackCount();         //数据包数量
+                rxData.clear();
+                break;
+            }
+            case CANTP_DATA:{
+                if(rxMsg.getDataLength() != sizeof(CANTP_PackData)) return; //长数据包头长度错误
+                CANTP_PackData *data = (CANTP_PackData*)rxMsg.getData();    //强制转换
+                for(uint8_t i = 0; i < rxMsg.getDataLength(); i++){ //遍历数据
+                    rxData.push_back(data->getData()[i]);
+                }
+                if(data->getPackIndex() == rxCount-1){
+                    //onReceived
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    bool getNextTXMessage(CANMessage &txMsg){
+        if(txDataSize == 0 || txData == 0) return false;    //无效数据
+        if(txDataSize <= mtuSize){  //使用短数据包传输
+            CANTPFrameID id(deviceID,CANTP_SHORT_DATA,0);
+            txMsg.setDataLength(txDataSize);
+            txMsg.readDataFrom(txData,txDataSize);
+            txMsg.setRemote(false);
+            txMsg.setExtend(false);
+            txMsg.setIdentifier(id);
+            txData = 0;
+            txDataSize = 0;
+        }else{  //使用长数据包传输
+            if(txCounter == 0){ //如果计数器=0，则发送头帧
+                CANTPFrameID id(deviceID,CANTP_DATA_HEAD,0);
+                txMsg.setDataLength(sizeof(CANTP_PackHead));
+                CANTP_PackHead *head = (CANTP_PackHead*)txMsg.getData();
+                head->setPackCount(txDataSize / (mtuSize-2)+1);
+                head->setTotalLength(txDataSize);
+                txMsg.setRemote(false);
+                txMsg.setExtend(false);
+                txMsg.setIdentifier(id);
+            }else{
+                CANTPFrameID id(deviceID,CANTP_DATA,0);
+                txMsg.setDataLength(sizeof(CANTP_PackHead));
+                CANTP_PackData *data = (CANTP_PackData*)txMsg.getData();
+                uint16_t packIndex = txCounter-1;
+                uint16_t dataStartIndex = packIndex*(mtuSize-2);
+                uint16_t dataEndIndex = txCounter*(mtuSize-2);
+                dataEndIndex = dataEndIndex >= txDataSize ? txDataSize : dataEndIndex;
+                data->setPackIndex(txCounter-1);
+                data->setData(&txData[dataStartIndex],dataEndIndex-dataStartIndex);  //复制数据
+                txMsg.setRemote(false);
+                txMsg.setExtend(false);
+                txMsg.setIdentifier(id);
+                if(dataEndIndex == txDataSize){ //完成
+                    txData = 0;
+                    txDataSize = 0;
+                    txCounter = 0;
+                    return false;
+                }
+            }
+            txCounter ++;
+        }
+        return true;
+    }
+    void startTransmission(uint8_t *data, uint16_t size){
+        if(size == 0 || data == 0) return;
+        txDataSize = size;
+        txData = data;
+        txCounter = 0;
+    }
+};
+
+
 #pragma pack(pop)

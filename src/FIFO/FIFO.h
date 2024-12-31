@@ -44,7 +44,7 @@ public:
     }
     inline int length() { return rear>=front?rear-front:SIZE-front+rear; }
     inline bool isFull(){ return length() == SIZE; }
-    inline bool isEmpty(){ return isEmpty(); }
+    inline bool isEmpty(){ return length() == 0; }
     inline int emptyLength(){ return SIZE - length(); }
 };
 

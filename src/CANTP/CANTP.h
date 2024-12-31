@@ -69,10 +69,10 @@ public:
 #if defined(ESP32)
 
 #else
-        if (getPendingTXMessages()) {   //如果RX的FIFO有数据
+        if (HAL_CAN_GetRxFifoFillLevel(can,CAN_RX_FIFO0)) {   //如果RX的FIFO有数据
             if (!rxMessage.isFull()) {  // 如果接收FIFO没有满
                 CAN_RxHeaderTypeDef rxHead;
-                HAL_CAN_GetRxMessage(can, 1, &rxHead, rxTempMessage.data);  //读取数据
+                HAL_CAN_GetRxMessage(can, CAN_RX_FIFO0, &rxHead, rxTempMessage.data);  //读取数据
                 rxTempMessage.readHeadFrom(&rxHead);
                 rxMessage.enqueue(rxTempMessage);   //扔进FIFO
             }
@@ -85,14 +85,15 @@ public:
 #else
         if (HAL_CAN_GetTxMailboxesFreeLevel(can)) {    // 如果发送位空闲
             if (!txMessage.isEmpty()) {   // 如果有需要发送的数据
-                CAN_TxHeaderTypeDef txHead;
                 CANMessage* txMsg;
-                txMessage.dequeue(txMsg);
-                txMsg->writeHeadTo(&txHead);
-                GlobalDebugMsg = *txMsg;
-                txHead_gd = txHead;
-                uint32_t txUsingMailBox;
-                HAL_CAN_AddTxMessage(can, &txHead, txMsg->data, &txUsingMailBox);
+                if(txMessage.dequeue(txMsg)){
+                    CAN_TxHeaderTypeDef txHead;
+                    memset(&txHead,sizeof(txHead), 0);
+                    txMsg->writeHeadTo(&txHead);
+                    txHead_gd = txHead;
+                    uint32_t txUsingMailBox;
+                    HAL_CAN_AddTxMessage(can, &txHead, txMsg->data, &txUsingMailBox);
+                }
             }
         }
 #endif
@@ -215,8 +216,10 @@ private:
     CANMessage rxMsg;
     CANMessage txMsg;
     CANTP_MessageCodec codec;
+
 public:
-    CANTPClient(HardwareCAN &can) : hwCAN(&can), reconnectTimer(200), askConnectTimeOutTimer(100), syncTimer(1000){}
+    uint32_t receiveTimes;
+    CANTPClient(HardwareCAN &can) : hwCAN(&can), reconnectTimer(1000), askConnectTimeOutTimer(500), syncTimer(1000){}
     void begin() {
         connection = CANTPConnState::DISCONNECTED;
         deviceID = 0;
@@ -224,9 +227,10 @@ public:
         canConf.mtu = 0;    //8 Bytes
         uniqueIDFragmentAppendLength = 0;
         reconnectTimer.start();
-
+        receiveTimes = 0;
     }
     void onMessageReceived() {
+        receiveTimes++;
         uint32_t canIdentifier = rxMsg.getCompleteIdentifier();
         uint8_t packType = ((CANTPFrameID*)&canIdentifier)->packType;
         uint8_t packIdentifier = ((CANTPFrameID*)&canIdentifier)->identifier;
@@ -364,12 +368,14 @@ public:
 };
 
 /******************************服务端****************************/
+uint32_t wtf = 0;
 class CANTPServer { //服务端
 private:
     bool isNewDeviceConnecting;
     uint32_t newDeviceConnectingTick;
     unordered_map<uint8_t, CANTPServerDevice>deviceList;
 #define ConnectingDevice deviceList.at(0)
+    CANTPServerDevice *currentDevice;
     uint8_t staticDevicesCount;
     HardwareCAN *hwCAN;
     CANMessage rxMsg;
@@ -381,6 +387,7 @@ public:
         staticDevicesCount = staticDevices;
         hwCAN = &canPhy;
         deviceList.emplace(0, this);    //正在连接的设备
+        currentDevice = &(deviceList.at(0));
         for (uint8_t i = 1; i <= staticDevicesCount; i++) deviceList.emplace(i, this);
     }
     void begin(){
@@ -446,13 +453,18 @@ public:
     inline bool isNewDeviceConnectTimedOut() { return isNewDeviceConnecting && (millis() - newDeviceConnectingTick >= 2000); }
     inline void resetNewDeviceConnectTick() { newDeviceConnectingTick = millis(); }
     void onMessageReceived() {
+        receiveTimes++;
         uint32_t canIdentifier = rxMsg.getCompleteIdentifier();
         uint8_t packType = ((CANTPFrameID*)&canIdentifier)->packType;
         uint8_t packIdentifier = ((CANTPFrameID*)&canIdentifier)->identifier;
+        wtf = 0;
         if (rxMsg.isRemote()) {    //远程帧
+        wtf = canIdentifier;
             switch (packType) {
             case CANTP_CONNECT_REQUEST:    // 当有设备请求连接
+        wtf = 2;
                 if (!isNewDeviceConnecting || isNewDeviceConnectTimedOut()) { //如果没有设备在连接，或上一个连接已经超时
+        wtf = 3;
                     isNewDeviceConnecting = true;   //开始处理新连接
                     ConnectingDevice.begin();    // 立刻对正在连接的设备初始化
                     ConnectingDevice.setConnectionState(CANTPConnState::CONNECTING);

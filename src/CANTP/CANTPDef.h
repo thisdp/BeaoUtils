@@ -90,14 +90,24 @@ CANTP数据包组成:
 class CANTPFrameID {
 public:
     uint32_t extIdentifier  : 18;
-    uint32_t identifier     : 8;
-    uint32_t packType       : 3; // 使用3位表示包类型
-    uint32_t reserved       : 3;
+    union{
+        struct{
+            uint32_t identifier     : 8;
+            uint32_t packType       : 3; // 使用3位表示包类型
+            uint32_t reserved       : 3;
+        };
+        uint32_t stdIdentifier : 14;
+    };
     CANTPFrameID();
     CANTPFrameID(uint8_t id, uint8_t pType, uint32_t extID = 0);
+    void setIdentifier(uint32_t stdID = 0, uint32_t extID = 0);
 };
 CANTPFrameID::CANTPFrameID() {}
-CANTPFrameID::CANTPFrameID(uint8_t pType, uint8_t id, uint32_t extID) : packType(pType), identifier(id), extIdentifier(extID) {}
+CANTPFrameID::CANTPFrameID(uint8_t pType, uint8_t id, uint32_t extID) : packType(pType), identifier(id), extIdentifier(extID), reserved(0) {}
+void CANTPFrameID::setIdentifier(uint32_t stdID, uint32_t extID) {
+    stdIdentifier = stdID;
+    extIdentifier = extID;
+}
 
 // CAN帧数据部分
 class CANTPFrameData {
@@ -171,7 +181,7 @@ public:
     inline bool isRemote() { return isRemotePack != 0; }
     inline uint32_t getIdentifier() { return identifier; }
     inline uint32_t getExtIdentifier() { return extIdentifier; }
-    inline uint32_t getCompleteIdentifier() { return (identifier << 11) + extIdentifier; }
+    inline uint32_t getCompleteIdentifier() { return (identifier << 19) + extIdentifier; }
     inline uint8_t getDataLength() { return dataLength; }
     CANMessage &operator=(CANMessage& other){
         if (this == &other) return *this; // 防止自我赋值

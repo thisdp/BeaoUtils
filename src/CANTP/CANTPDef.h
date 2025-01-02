@@ -38,8 +38,8 @@ using namespace std;
 #define CANFrameDataLengthMin ((uint8_t)(8 - sizeof(uint16_t)))
 
 enum CANTPDataPackType : uint8_t {    // 数据帧
-    CANTP_CONNECTION_DONE = 0, // 连接成功
-    CANTP_CONNECTION_LOST = 1, // 连接丢失
+    CANTP_CONNECTION_LOST = 0, // 连接丢失
+    CANTP_CONNECTION_DONE = 1, // 连接成功
     CANTP_ASSIGNED_ID = 2,  // 分配到ID
     CANTP_CONNECT_ALLOW = 3,// 允许连接
     CANTP_SHORT_DATA = 4,   // 短数据包

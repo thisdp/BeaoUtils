@@ -253,18 +253,17 @@ public:
                 // 如果仲裁失败，则退出竞争，间歇性发送JOIN REQUEST
             break;
             case CANTP_ASSIGNED_ID:{ // 当接收到分配ID的回包
-                if (deviceID != 0) {    // 如果指定了ID
-                    if (packIdentifier != deviceID && !reassignIfIDConflict) {  // 如果选择拒绝重新分配ID
-                        txMsg.clear();
-                        CANTPFrameID frameIdentifier(CANTP_DISCONNECT, packIdentifier);
-                        txMsg.setIdentifier(frameIdentifier);
-                        txMsg.setDataLength(0);
-                        txMsg.setExtend(false);
-                        txMsg.setRemote(true);
-                        hwCAN->send(txMsg); //发送Disconnect
-                        setConnectionState(CANTPConnState::DISCONNECTED);
-                        return;
-                    }
+                if(getConnectionState() != CANTPConnState::CONNECTING) return;  //未处于连接状态
+                if (deviceID == 0 || (packIdentifier != deviceID && !reassignIfIDConflict)) {  // 如果选择拒绝重新分配ID或拿到的ID为0
+                    txMsg.clear();
+                    CANTPFrameID frameIdentifier(CANTP_DISCONNECT, packIdentifier);
+                    txMsg.setIdentifier(frameIdentifier);
+                    txMsg.setDataLength(0);
+                    txMsg.setExtend(false);
+                    txMsg.setRemote(true);
+                    hwCAN->send(txMsg); //发送Disconnect 拒绝连接
+                    setConnectionState(CANTPConnState::DISCONNECTED);
+                    return;
                 }
                 setDeviceID(packIdentifier);  //写入ID
                 txMsg.clear();
@@ -277,6 +276,7 @@ public:
             }
             break;
             case CANTP_CONNECTION_DONE:    // 连接成功
+                if(getConnectionState() != CANTPConnState::CONNECTING) return;  //未处于连接状态
                 setConnectionState(CANTPConnState::CONNECTED); // 随后服务器只能通过CANID访问本机
             break;
             case CANTP_CONNECTION_LOST:    // 连接丢失

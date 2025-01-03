@@ -2,14 +2,16 @@
 /*FIFO*/
 template <typename T, int SIZE>
 class FIFO {
-public:
+private:
     T data[SIZE];
     uint16_t front;
     uint32_t len;
     bool overwriteOnFull;
-    FIFO():front(0),rear(0), overwriteOnFull(false) {}
+public:
+    inline uint32_t getRear() const { return (front + len) % SIZE; }
+    FIFO() :front(0), len(0), overwriteOnFull(false) {}
     void setOverwriteOnFull(bool value) {
-      overwriteOnFull = value;
+        overwriteOnFull = value;
     }
     bool enqueue(T& item) {
         if (isFull()) {

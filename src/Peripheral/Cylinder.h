@@ -136,8 +136,8 @@ public:
       resetAlarm();
     }
     if(getAlarm() == AlarmType::NoAlarm){ //如果没有报警，则进行判定
-      homeState = pinHome != -1 ? ioRead(pinHome) : true;  //如果没有原点，强制true
-      moveState = pinMove != -1 ? ioRead(pinMove) : true;  //如果没有动点, 强制true
+      homeState = pinHome != -1 ? ioRead(pinHome) : !currentState;  //如果没有原点，强制到达
+      moveState = pinMove != -1 ? ioRead(pinMove) : currentState;  //如果没有动点, 强制到达
       currentState = getState();
       if(currentState != lastState){
         setNotify(true);

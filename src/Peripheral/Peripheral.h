@@ -87,7 +87,7 @@ public:
     return updateNotify;
   }
   const char* getAlarmDetail(uint16_t alarm){
-    return getBasicAlarmDetail(alarm);
+    return getBasicAlarmDetail(periType,alarm);
   }
   //回调函数
   BasicIndustrialPeripheralCallBack onAlarm;

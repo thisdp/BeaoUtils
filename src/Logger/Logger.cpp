@@ -112,8 +112,12 @@ void const Logger::println(const char *str){
 }
 
 /*Logger Keeper*/
-LoggerKeeper::LoggerKeeper(uint16_t size) : _loggerFIFO(size), onLog(0) {}
-LoggerKeeper::LoggerKeeper(Stream &stream, uint16_t size): Logger(stream), _loggerFIFO(size), onLog(0) {}
+LoggerKeeper::LoggerKeeper(uint16_t size) : _loggerFIFO(size), onLog(0) {
+    _loggerFIFO.setOverwriteOnFull(true);
+}
+LoggerKeeper::LoggerKeeper(Stream &stream, uint16_t size): Logger(stream), _loggerFIFO(size), onLog(0) {
+    _loggerFIFO.setOverwriteOnFull(true);
+}
 
 void LoggerKeeper::setLoggerKeepSize(uint16_t size){
     _loggerFIFO.resize(size);

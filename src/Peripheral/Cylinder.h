@@ -26,6 +26,8 @@ protected:
     uint16_t rState;  //外部只读状态
   };
 
+  bool manualStateBefore; //用于同步
+
   uint16_t goHomeDelay;     //去原点延时
   uint16_t goMoveDelay;     //去动点延时
   uint16_t goHomeTimeOut;   //去原点超时
@@ -60,10 +62,12 @@ public:
       int8_t execPin,
       int8_t inputHome = -1, int8_t inputMove = -1,
       uint32_t timeGoHomeDelay = 0, uint32_t timeGoMoveDelay = 0,
-      uint32_t timeGoHomeTimeOut = 3000, uint32_t timeGoMoveTimeOut = 3000
+      uint32_t timeGoHomeTimeOut = 3000, uint32_t timeGoMoveTimeOut = 3000,
+      bool forceSuccessWhenGoHomeTimeout = false, bool forceSuccessWhenGoMoveTimeout = false
     ) :
       BasicIndustrialPeripheral(PeriType),
       manualState(false),
+      manualStateBefore(false),
       autoState(false),
       run(false),
       pinCylinder(execPin),
@@ -72,13 +76,13 @@ public:
       goHomeDelayTimer(timeGoHomeDelay),
       goMoveDelayTimer(timeGoMoveDelay),
       goHomeTimeOutTimer(timeGoHomeTimeOut),
-      goMoveTimeOutTimer(timeGoMoveTimeOut)
+      goMoveTimeOutTimer(timeGoMoveTimeOut),
+      forceSuccessGoHomeTimeout(forceSuccessWhenGoHomeTimeout),
+      forceSuccessGoMoveTimeout(forceSuccessWhenGoMoveTimeout)
   {
     lastState = false;
     periName = periCustomName;
     setNotify(true);
-    forceSuccessGoHomeTimeout = false;
-    forceSuccessGoMoveTimeout = false;
   }
   bool getManualState(){
     return manualState;
@@ -96,6 +100,7 @@ public:
   bool setManualState(bool state){
     if(run) return false; //如果是自动模式，则设置手动无效
     manualState = state;
+    manualStateBefore = state;
     forceManual = true;
     setNotify(true);
     return true;
@@ -118,6 +123,7 @@ public:
     }
     return true;
   }
+  bool isRunning(){ return run; }
   void setForceSuccessGoHomeTimeout(bool state){ forceSuccessGoHomeTimeout = state; }
   void setForceSuccessGoMoveTimeout(bool state){ forceSuccessGoMoveTimeout = state; }
   inline void goHome(){ setAutoState(false); }
@@ -129,6 +135,12 @@ public:
   }
   inline bool isAtMovePhysically(){
     return currentState && (moveState);
+  }
+  void stopAllTimers(){
+    goMoveTimeOutTimer.stop();
+    goHomeTimeOutTimer.stop();
+    goMoveDelayTimer.stop();
+    goHomeDelayTimer.stop();
   }
   void update(){
     if(alarmReset){ //尝试复位报警
@@ -155,6 +167,7 @@ public:
             }else if(!moveState){ //如果没有到达动点
               if(forceSuccessGoMoveTimeout){ //如果启用强制到达
                 atMove = true;  //强制到达动点
+                stopAllTimers();
               }else{
                 setAlarm(AlarmType::CylinderGoMoveButNoMove); //报警
               }
@@ -168,6 +181,7 @@ public:
             if(goMoveDelayTimer.checkTimedOut()){
               goMoveDelayTimer.stop();
               atMove = true;  //到达动点
+              stopAllTimers();
               setNotify(true);
             }
           }
@@ -183,6 +197,7 @@ public:
             }else if(!homeState){ //如果没有到达原点
               if(forceSuccessGoHomeTimeout){ //如果启用强制到达
                 atHome = true;  //强制到达原点
+                stopAllTimers();
               }else{
                 setAlarm(AlarmType::CylinderGoHomeButNoHome); //报警
               }
@@ -196,11 +211,18 @@ public:
             if(goHomeDelayTimer.checkTimedOut()){
               goHomeDelayTimer.stop();
               atHome = true;  //到达原点
+              stopAllTimers();
               setNotify(true);
             }
           }
         }
       }
+      if(!run){
+        if(manualState != manualStateBefore){
+          setManualState(manualState);
+        }
+      }
+      manualStateBefore = manualState;
     }
   }
 };

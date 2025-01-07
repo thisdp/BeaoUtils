@@ -55,6 +55,7 @@ public:
     run = state;
     return true;
   }
+  bool isRunning(){ return run; }
   void start(){
     recording = true;
     responseTimer.start();

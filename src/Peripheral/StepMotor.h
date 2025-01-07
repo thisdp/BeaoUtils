@@ -83,6 +83,7 @@ public:
     run = state;
     return true;
   }
+  bool isRunning(){ return run; }
   void setEnabled(bool enState){
     enable = enState;
     ioWrite(pinEnable,enState);  //高电平有效

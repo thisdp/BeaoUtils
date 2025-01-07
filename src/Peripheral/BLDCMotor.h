@@ -85,6 +85,7 @@ public:
     }
     return true;
   }
+  bool isRunning(){ return run; }
   void setEnabled(bool enState){
     enable = enState;
     ioWrite(pinEnable,enState);

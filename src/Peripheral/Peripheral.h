@@ -34,7 +34,7 @@ protected:
       onAlarmReset();
       return;
     }
-    globalPDL.printfln("[报警][ID:%d][类型:%d]%s: %s",periID,periType,periName,getAlarmDetail(alarmState));
+    globalPDL.printfln("[报警][ID:%d][类型:%d]%s: %s (%d)",periID,periType,periName,getAlarmDetail(alarmState),alarmState);
     if(onAlarm) onAlarm(this,oldAlarm);
   }
 public:
@@ -102,4 +102,5 @@ public:
     debugOn = !debugOn;
   }
   virtual bool setRun(bool state) = 0;
+  virtual bool isRunning() = 0;
 };

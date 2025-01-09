@@ -1,4 +1,5 @@
 #pragma once
+#include "Arduino.h"
 /*FIFO*/
 template <typename T, int SIZE>
 class FIFO {

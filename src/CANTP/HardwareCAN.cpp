@@ -97,7 +97,7 @@ void HardwareCAN::doReceive() {
 #if defined(ESP32)
 // ESP32-specific implementation if any
 #else
-    if (HAL_CAN_GetRxFifoFillLevel(can, CAN_RX_FIFO0)) {
+    if (HAL_CAN_GetRxFifoFillLevel(can, CAN_RX_FIFO0) > 0) { // 检查是否有消息
         if (!rxMessage.isFull()) {
             CAN_RxHeaderTypeDef rxHead;
             HAL_CAN_GetRxMessage(can, CAN_RX_FIFO0, &rxHead, rxTempMessage.getData());
@@ -111,7 +111,7 @@ void HardwareCAN::doSend() {
 #if defined(ESP32)
 // ESP32-specific implementation if any
 #else
-    if (HAL_CAN_GetTxMailboxesFreeLevel(can)) {
+    if (HAL_CAN_GetTxMailboxesFreeLevel(can) > 0) { // 检查是否有空闲邮箱
         if (!txMessage.isEmpty()) {
             CANMessage* txMsg;
             if (txMessage.dequeue(txMsg)) {

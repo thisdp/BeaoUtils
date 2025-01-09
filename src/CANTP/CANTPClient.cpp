@@ -1,7 +1,7 @@
 #include "CANTPClient.h"
 
 // 构造函数
-CANTPClient::CANTPClient(HardwareCAN &can) b
+CANTPClient::CANTPClient(HardwareCAN &can)
     : hwCAN(&can),
       reconnectTimer(1000),
       askConnectTimeOutTimer(500),

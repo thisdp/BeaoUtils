@@ -62,27 +62,37 @@ enum class CANTPConnState : uint8_t {
     EXPECTING_CAN_ID,
 };
 
-enum CANType {
-    CANType_CAN20B = 0,
-    CANType_CANFD = 1,
+namespace CANType {
+    constexpr uint8_t CAN20B = 0;
+    constexpr uint8_t CANFD = 1;
+    constexpr uint8_t CANXL = 2;
+};
+
+enum CANFuncCode {  
+
 };
 
 #pragma pack(push)
 #pragma pack(1)
-class CANConfig {
+class CANTPConfig {
 public:
     union{
         struct{
-            uint8_t mtu : 4;
+            uint8_t mtuCode : 4;
             uint8_t canType : 4;
         };
         uint8_t config;
     };
-
-    CANConfig(uint8_t _mtu, uint8_t _canType);
-    CANConfig();
-    void setConfig(uint8_t mtu, uint8_t canType);
+    CANTPConfig(uint8_t argMtuCode, uint8_t argCanType);
+    CANTPConfig();
+    void setConfig(uint8_t argMtuCode, uint8_t argCanType);
     uint8_t getConfig() const;
+    void setCANType(uint8_t argCanType);
+    uint8_t getCANType() const;
+    void setMtuCode(uint8_t argMtuCode);
+    uint8_t getMtuCode() const;
+    uint16_t setMtuSize(uint16_t argMtuSize);
+    uint16_t getMtuSize() const;
 };
 
 class CANTPFrameID {

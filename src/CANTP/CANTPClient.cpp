@@ -12,11 +12,11 @@ CANTPClient::CANTPClient(HardwareCAN &can)
       hbTimes(0) {}
 
 // 初始化方法
-void CANTPClient::begin() {
+void CANTPClient::begin(uint8_t maxMtuSize, uint8_t canType) {
     connection = CANTPConnState::DISCONNECTED;
-    deviceID = 0;
-    canConf.canType = CANType_CAN20B;
-    canConf.mtu = 0; // 8 Bytes
+    setDeviceID(0);
+    canConf.setMtuSize(maxMtuSize); // 8 Bytes
+    canConf.setCANType(canType);
     uniqueIDFragmentAppendLength = 0;
     reconnectTimer.start();
 }
@@ -38,6 +38,14 @@ void CANTPClient::onMessageReceived() {
         switch (packType) {
         case CANTP_CONNECT_ALLOW: {
             setConnectionState(CANTPConnState::CONNECTING);
+            CANTPConfig* serverConfig = (CANTPConfig*)&(packIdentifier);
+            if(serverConfig->getMtuSize() < canConf.getMtuSize()){  // 比较支持的最大MTU
+                canConf.setMtuSize(serverConfig->getMtuSize()); // 按照较低方的MTU设置
+            }
+            if(serverConfig->getCANType() < canConf.getCANType()){  // 比较支持的最高版本的CAN类型
+                canConf.setCANType(serverConfig->getCANType()); // 按照较低方的CAN类型设置
+            }
+
             for (uint8_t i = 0; i < uniqueID.getLength(); i++) {
                 txMsg.clear();
                 CANTPFrameID frameIdentifier;
@@ -50,7 +58,7 @@ void CANTPClient::onMessageReceived() {
                 hwCAN->send(txMsg);
             }
 
-            CANConfig conf(0, CANType_CAN20B);
+            CANTPConfig conf(0, CANType::CAN20B);
             txMsg.clear();
             CANTPFrameID frameIdentifier(CANTP_CONFIGURE, conf.getConfig());
             txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
@@ -102,7 +110,6 @@ void CANTPClient::onMessageReceived() {
         case CANTP_SHORT_DATA:
         case CANTP_DATA_HEAD:
         case CANTP_DATA:
-            // Implement handling for short data packets, data headers, and data content as necessary.
             break;
         }
     }

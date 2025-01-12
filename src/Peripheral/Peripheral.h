@@ -25,6 +25,8 @@ protected:
   uint16_t periType;     //类型
   uint16_t alarmState;   //报警
   const char* periName;  //名称
+  uint8_t alarmSolutionStep;   //报警解决器步骤
+  bool alarmSolutionActionType;  //报警解决器动作类型
   IODigitalWrite ioWrite;
   IODigitalRead ioRead;
   bool updateNotify;     //更新通知
@@ -64,8 +66,9 @@ public:
     periName("基础外设"),
     updateNotify(false),
     ioWrite(gDigitalWrite),
-    ioRead(gDigitalRead)
-  {}
+    ioRead(gDigitalRead),
+    alarmSolutionStep(AlarmSolutionStep::Idle),
+    alarmSolutionActionType(AlarmSolutionType::NoSolution)  {}
   uint16_t &getAlarmRef(){ return alarmState; }
   const char* getName(){ return periName; }
   uint16_t getID(){ return periID; }
@@ -103,4 +106,16 @@ public:
   }
   virtual bool setRun(bool state) = 0;
   virtual bool isRunning() = 0;
+  //报警解决器
+  void alarmSolutionSetActionType(uint8_t type){
+    alarmSolutionActionType = type;
+  }
+  bool alarmIsSolving(){
+    return alarmSolutionStep != AlarmSolutionStep::Idle;
+  }
+  void alarmTryToSolve(){
+    if(getAlarm() == AlarmType::NoAlarm) return;
+    alarmSolutionStep = AlarmSolutionStep::RequestSolve;
+  }
+  virtual void alarmSolutionUpdate() = 0;
 };

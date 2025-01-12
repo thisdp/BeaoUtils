@@ -15,7 +15,7 @@ class CANTPServerDevice : public CANTPMsgCodec {
 private:
     char deviceName[32];
     CANTPUniqueID uniqueID;
-    CANConfig canConf;
+    CANTPConfig canConf;
 
     uint8_t uniqueIDFragmentAppendLength;
     CANTPConnState connection;
@@ -30,14 +30,14 @@ public:
     CANTPServerDevice(const CANTPServerDevice& other);
 
     void begin();
-    inline void setCANConfig(CANConfig aCANType) { canConf = aCANType; mtuSize = 1 << (canConf.mtu + 3); }
-    inline CANConfig getCANConfig() { return canConf; }
+    inline void setCANTPConfig(CANTPConfig aCANConf) { canConf = aCANConf; }
+    inline CANTPConfig getCANTPConfig() { return canConf; }
     inline void setConnectionState(CANTPConnState newState) { connection = newState; }
     inline CANTPConnState getConnectionState() { return connection; }
     inline void addUniqueIDFragment(uint8_t uidFrag) { uniqueID.setRaw(uniqueIDFragmentAppendLength++, uidFrag); }
     inline CANTPUniqueID &getUniqueID() { return uniqueID; }
     inline void setUniqueID(CANTPUniqueID &uid) { uniqueID = uid; }
-    inline void resetclientSyncTimer() { clientSyncTimer.start(); }
+    inline void resetClientSyncTimer() { clientSyncTimer.start(); }
     inline void setDeviceName(const char* devName) {
         size_t len = strlen(devName);
         if (len >= sizeof(deviceName)) len = sizeof(deviceName) - 1;
@@ -67,6 +67,8 @@ private:
     CANMessage txMsg;
     MSTimer globalHeartBeatTimer;
 
+    CANTPConfig canConf;
+
 public:
     uint32_t receiveTimes;
     uint32_t remoteReceiveTimes;
@@ -76,7 +78,7 @@ public:
 
     CANTPServer(HardwareCAN& canPhy, uint8_t staticDevices);
 
-    void begin(uint8_t maxMtuSize = 8, uint8_t canType = CANType_CAN20B);
+    void begin(uint8_t maxMtuSize = 8, uint8_t canType = CANType::CAN20B);
     void loadDeviceList();
     void loadDevice(uint8_t devID);
     void saveDeviceList();

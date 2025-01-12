@@ -10,7 +10,6 @@ class CANTPClient : public CANTPMsgCodec {
 private:
     char deviceName[64];
     CANTPUniqueID uniqueID;
-    CANConfig canConf;
 
     bool reassignIfIDConflict;
     MSTimer reconnectTimer;
@@ -31,7 +30,7 @@ public:
     
     CANTPClient(HardwareCAN &can);
 
-    void begin();
+    void begin(uint8_t maxMtuSize = 8, uint8_t canType = CANType::CAN20B);
     void onMessageReceived();
     void tryToJoinBus();
     void onInternalConnectionStateChange();
@@ -39,14 +38,13 @@ public:
     void send(uint8_t packType, uint8_t* data, uint8_t length);
     void onReceived();
     inline void send() { clientSyncTimer.start(); }
-    inline void setCANConfig(CANConfig aCANType) { canConf = aCANType; mtuSize = 1<<(canConf.mtu+3); setMTUSize(mtuSize); }
-    inline CANConfig getCANConfig() { return canConf; }
+    inline void setCANTPConfig(CANTPConfig aCANConf) { canConf = aCANConf; }
+    inline CANTPConfig getCANTPConfig() { return canConf; }
     inline void setConnectionState(CANTPConnState newState) { connection = newState; onInternalConnectionStateChange(); }
     inline CANTPConnState getConnectionState() { return connection; }
     inline void addUniqueIDFragment(uint8_t uidFrag) { uniqueID.setRaw(uniqueIDFragmentAppendLength++,uidFrag); }
     inline void setUniqueID(CANTPUniqueID &uid) { uniqueID = uid; }
     inline CANTPUniqueID& getUniqueID() { return uniqueID; }
-    inline uint8_t getDeviceID() const { return deviceID; }
     inline void setDeviceName(const char* devName) {
         size_t len = strlen(devName);
         if (len >= sizeof(deviceName)) len = sizeof(deviceName) - 1;

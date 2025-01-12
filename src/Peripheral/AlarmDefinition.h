@@ -94,6 +94,11 @@ static const char* getBasicAlarmDetail(uint16_t periType, uint16_t alarm){
 
 namespace AlarmSolutionStep{
 	constexpr uint16_t Idle = 0;
-	constexpr uint16_t Alarm = 1;
-	constexpr uint16_t RequestSolve = 2;
+	constexpr uint16_t RequestSolve = 1;
+};
+
+namespace AlarmSolutionType{
+  constexpr uint8_t NoSolution = 0; //直接报警
+  constexpr uint8_t AutoSolve = 1;  //自动解决
+  constexpr uint8_t ProgramSolve = 2; //程序解决
 };

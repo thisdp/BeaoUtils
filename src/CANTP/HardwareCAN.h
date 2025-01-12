@@ -38,24 +38,32 @@ public:
     uint32_t isExtendPack : 1;     //IDE
     uint32_t isRemotePack : 1;     //RTR
     uint32_t reserved1 : 30;
+
     uint32_t identifier : 11;    //STDID
     uint32_t extIdentifier : 18;    //EXTID
     uint32_t reserved2 : 3;
+
     uint8_t dataLength;             //DLC
+
+    constexpr static size_t headerSize = sizeof(uint32_t)*2+sizeof(uint8_t);
 #else
     uint32_t identifier;    //STDID
     uint32_t extIdentifier; //EXTID
     uint32_t isExtendPack;  //IDE
     uint32_t isRemotePack;  //RTR
     uint32_t dataLength;    //DLC
+    
+    constexpr static size_t headerSize = sizeof(uint32_t)*5;
 #endif
     CANMessageBuffer data;
+    uint8_t txStateHandle;
+
     CANMessage() : dataLength(0) {}
     uint16_t lengthCodeToLength(uint8_t dlc, uint16_t maxSize = 64);
     uint16_t lengthToLengthCode(uint16_t length, uint16_t maxSize = 64);
 #if defined(ESP32)
-    inline void readHeadFrom(twai_message_t* readHead) { memcpy(this, readHead, sizeof(CANMessage) - sizeof(data)); }
-    inline void writeHeadTo(twai_message_t* writeHead) { memcpy(writeHead, this, sizeof(CANMessage) - sizeof(data)); }
+    inline void readHeadFrom(twai_message_t* readHead) { memcpy(this, readHead, headerSize); }
+    inline void writeHeadTo(twai_message_t* writeHead) { memcpy(writeHead, this,headerSize); }
     inline void readFrom(twai_message_t *twaiMsg) {
         readHeadFrom(twaiMsg);
         readDataFrom(twaiMsg->data,lengthCodeToLength(twaiMsg->data_length_code));
@@ -68,10 +76,10 @@ public:
     inline void setExtend(bool isExtend) { isExtendPack = isExtend; }
     inline void setRemote(bool isRemote) { isRemotePack = isRemote; }
 #else
-    inline void readHeadFrom(CAN_TxHeaderTypeDef* readHead) { memcpy(this, readHead, sizeof(CANMessage) - sizeof(data)); }
-    inline void readHeadFrom(CAN_RxHeaderTypeDef* readHead) { memcpy(this, readHead, sizeof(CANMessage) - sizeof(data)); }
-    inline void writeHeadTo(CAN_TxHeaderTypeDef* writeHead) { memcpy(writeHead, this, sizeof(CANMessage) - sizeof(data)); }
-    inline void writeHeadTo(CAN_RxHeaderTypeDef* writeHead) { memcpy(writeHead, this, sizeof(CANMessage) - sizeof(data)); }
+    inline void readHeadFrom(CAN_TxHeaderTypeDef* readHead) { memcpy(this, readHead, headerSize); }
+    inline void readHeadFrom(CAN_RxHeaderTypeDef* readHead) { memcpy(this, readHead, headerSize); }
+    inline void writeHeadTo(CAN_TxHeaderTypeDef* writeHead) { memcpy(writeHead, this, headerSize); }
+    inline void writeHeadTo(CAN_RxHeaderTypeDef* writeHead) { memcpy(writeHead, this, headerSize); }
     inline void readFrom(CAN_TxHeaderTypeDef *msg, uint8_t *msgData) {
         readHeadFrom(msg);
         readDataFrom(msgData,lengthCodeToLength(msg->DLC));
@@ -108,14 +116,14 @@ public:
     inline uint16_t getDataLength() { return lengthCodeToLength(dataLength); }
     inline CANMessage &operator=(CANMessage& other){
         if (this == &other) return *this; // 防止自我赋值
-        memcpy(this, &other, sizeof(CANMessage) - sizeof(data));
+        memcpy(this, &other, headerSize);
         data.setData(other.data.getData(), other.data.getLength());
         return *this;
     }
 };
 #pragma pack(pop)
 
-
+//同一时刻只传输一个数据
 class HardwareCAN {
 private:
     bool isInited;
@@ -124,7 +132,7 @@ private:
     uint32_t baudrateData;
 #if defined(ESP32)
     // ESP32-specific members if any
-    TWAICAN* can;
+    //TWAICAN* can;
 #else
     CAN_HandleTypeDef* can;
 #endif
@@ -135,24 +143,26 @@ private:
 
 public:
 #if defined(ESP32)
-    HardwareCAN(TWAICAN &argCan);
+    //HardwareCAN(TWAICAN &argCan);
 #else
     HardwareCAN(CAN_HandleTypeDef &argCan);
 #endif
     inline uint8_t getPendingTXMessages() {
 #if defined(ESP32)
-        return argCan->getQueuedTXMessage();
+        //return argCan->getQueuedTXMessage();
 #else
         return HAL_CAN_GetTxMailboxesFreeLevel(can);
 #endif
     }
     inline int available() { return rxMessage.length(); }
     inline int availableForWrite() { return txMessage.emptyLength(); }
-    inline bool isTXEmpty() { return txMessage.length() == 0 && getPendingTXMessages() == 3; }
+    inline bool isTXEmpty() { return txMessage.isEmpty(); }
+    inline bool isTXFull() { return txMessage.isFull(); }
     void begin(uint16_t maxLength, uint32_t baud = 500000, uint32_t fdBaud = 500000);
     bool receive(CANMessage &msg);
     bool send(uint32_t identifier, uint8_t* data, uint8_t length, bool isRemote = false, bool isExtend = false, uint32_t extIdentifier = 0);
     bool send(CANMessage &msg);
+    bool abortSend();
     void doReceive();
     void doSend();
     void update();

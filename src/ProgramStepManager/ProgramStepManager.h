@@ -82,7 +82,6 @@ public:
         step(0)
     {
         periName = periCustomName;
-        stepTo(PSMStep::Stopped);
     }
     void stepTo(PSMStep main){
         stepTo((uint16_t)main);
@@ -112,4 +111,5 @@ public:
     uint16_t &getStepRef(){
         return step;
     }
+    void alarmSolutionUpdate(){}
 };

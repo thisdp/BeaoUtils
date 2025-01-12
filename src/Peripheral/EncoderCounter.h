@@ -46,20 +46,21 @@ public:
     pinENA(rA),
     pinENB(rB),
     encoderTiming(0),
-    responseTimer(1000)
+    responseTimer(2000)
   {
     periName = periCustomName,
     clear();
   }
   bool setRun(bool state){
     run = state;
+    responseTimer.start();
     return true;
   }
   bool isRunning(){ return run; }
   void start(){
-    recording = true;
     responseTimer.start();
     clear();
+    recording = true;
     lastState[ENA] = ioRead(pinENA);
     lastState[ENB] = ioRead(pinENB);
   }
@@ -79,6 +80,7 @@ public:
   uint32_t getLastUpdateTick(){
     return lastUpdateTick;
   }
+  void alarmSolutionUpdate(){}
   void update(){
     if(alarmReset){
         alarmReset = false;
@@ -117,6 +119,7 @@ public:
               }
           }
           if(responseTimer.checkTimedOut()){
+              dblogln("开始时间 %d %d %d",responseTimer.getStartTime(),responseTimer.getCurrentTime(),responseTimer.getPassedTime());
               setAlarm(AlarmType::EncoderHardwareAlarm);  //无信号故障
           }
       }

@@ -16,15 +16,18 @@ protected:
     uint16_t txDataSize;    // 数据长度
     uint8_t *txData;        // 数据地址
 
+    CANTPConfig canConf;
     uint16_t mtuSize;   // MTU大小
     uint8_t deviceID;   // 设备ID
 
 public:
     CANTPMsgCodec();
-    inline void setMTUSize(uint16_t mtu) { mtuSize = mtu; }
+    inline void setMTUSize(uint16_t mtu) { mtuSize = canConf.setMtuSize(mtu); }
     inline uint16_t getMTUSize(uint16_t mtu) const { return mtuSize; }
-    inline void setDeviceID(uint8_t devID) { deviceID = devID; };
-    inline uint8_t getDeviceID() const { return deviceID; }
+    inline void setCANType(uint8_t canType){ canConf.setCANType(canType); }
+    inline uint8_t getCANType() const { return canConf.getCANType(); }
+    void setDeviceID(uint8_t devID) { deviceID = devID; };
+    uint8_t getDeviceID() const { return deviceID; }
     void readRXMessage(CANMessage &rxMsg);
     bool getNextTXMessage(CANMessage &txMsg);
     void startTransmission(uint8_t *data, uint16_t size);

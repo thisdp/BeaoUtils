@@ -142,6 +142,7 @@ public:
     goMoveDelayTimer.stop();
     goHomeDelayTimer.stop();
   }
+  void alarmSolutionUpdate(){}
   void update(){
     if(alarmReset){ //尝试复位报警
       alarmReset = false;

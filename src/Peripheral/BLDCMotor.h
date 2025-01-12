@@ -32,7 +32,6 @@ protected:
   int8_t pinSpeed;
   int8_t pinAlarm;
 
-  uint8_t alarmStep;
 
 
 public:
@@ -47,11 +46,11 @@ public:
   static constexpr bool DirCW = false;  //顺时针转
   static constexpr bool DirCCW = true;  //逆时针转
 //报警解决器
-  static constexpr uint16_t ASS_Disable = 3;
-  static constexpr uint16_t ASS_WaitDisable = 4;
-  static constexpr uint16_t ASS_Enable = 5;
-  static constexpr uint16_t ASS_WaitEnable = 6;
-  static constexpr uint16_t ASS_WaitAlarmRecover = 7;
+  static constexpr uint16_t ASS_Disable = 10;
+  static constexpr uint16_t ASS_WaitDisable = 11;
+  static constexpr uint16_t ASS_Enable = 12;
+  static constexpr uint16_t ASS_WaitEnable = 13;
+  static constexpr uint16_t ASS_WaitAlarmRecover = 14;
   MSTimer alarmSolutionTimer;
   BLDCMotor(
       const char *periCustomName,
@@ -67,7 +66,6 @@ public:
       pinSV(pSV),
       pinSpeed(pSpeed),
       pinAlarm(pAlarm),
-      alarmStep(AlarmSolutionStep::Idle),
       alarmSolutionTimer(2000)
   {
     periName = periCustomName;
@@ -103,67 +101,70 @@ public:
   bool hasHardwareAlarm(){
     return pinAlarm != -1 ? ioRead(pinAlarm) : false;
   }
-  //报警解决
-  bool isWaitingSolveAlarm(){
-    return alarmStep == AlarmSolutionStep::Alarm;
-  }
-  bool isSolvingAlarm(){
-    return alarmStep > AlarmSolutionStep::Alarm;
-  }
-  bool isAlarmSolutionIdle(){
-    return alarmStep == AlarmSolutionStep::Idle;
-  }
-  void trySolveAlarm(){
-    if(alarmStep != AlarmSolutionStep::Idle){
-      alarmStep = AlarmSolutionStep::RequestSolve;
+  
+  void alarmSolutionUpdate(){
+    bool alarm = hasHardwareAlarm();
+    if(alarmSolutionStep == AlarmSolutionStep::Idle){ //如果报警解决器空闲
+      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
+        if(alarmSolutionActionType == AlarmSolutionType::NoSolution){ //如果未设定则直接报警
+          setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
+        }else if(alarmSolutionActionType == AlarmSolutionType::AutoSolve){  //尝试自动解决
+          alarmTryToSolve();  //尝试解决
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 自动尝试解决",periID,periType,periName);
+        }else if(alarmSolutionActionType == AlarmSolutionType::ProgramSolve){
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 外部处理",periID,periType,periName);
+          // 程序解决，不处理报警
+        }
+      }
+    }
+    switch(alarmSolutionStep){
+      case AlarmSolutionStep::RequestSolve:
+        alarmSolutionStep = BLDCMotor::ASS_Disable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 开始解决报警",periID,periType,periName);
+      break;
+      case BLDCMotor::ASS_Disable:
+        alarmSolutionTimer.start();
+        setEnabled(false);
+        alarmSolutionStep = BLDCMotor::ASS_WaitDisable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 关闭使能",periID,periType,periName);
+      break;
+      case BLDCMotor::ASS_WaitDisable:
+        if(alarmSolutionTimer.checkTimedOut()){
+          alarmSolutionStep = BLDCMotor::ASS_Enable;
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 延时",periID,periType,periName);
+        }
+      break;
+      case BLDCMotor::ASS_Enable:
+        alarmSolutionTimer.start();
+        setEnabled(true);
+        alarmSolutionStep = BLDCMotor::ASS_WaitEnable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 打开使能",periID,periType,periName);
+      break;
+      case BLDCMotor::ASS_WaitEnable:
+        if(alarmSolutionTimer.checkTimedOut()){
+          alarmSolutionStep = BLDCMotor::ASS_WaitAlarmRecover;
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 等待恢复",periID,periType,periName);
+        }
+      break;
+      case BLDCMotor::ASS_WaitAlarmRecover:
+        alarmSolutionStep = AlarmSolutionStep::Idle;
+        if(alarm){  //无法消除报警
+          setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 报警未消除，上报",periID,periType,periName);
+        }else{
+          if(getAlarm() != AlarmType::NoAlarm) resetAlarm(); //报警已经消除
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 报警已消除",periID,periType,periName);
+        }
+      break;
     }
   }
   void update(){
     if(alarmReset){ //尝试复位报警
       alarmReset = false;
       resetAlarm();
-      trySolveAlarm();
+      alarmTryToSolve();
     }
-    bool alarm = hasHardwareAlarm();
-    if(alarmStep == AlarmSolutionStep::Idle){ //报警解决器空闲
-      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
-        alarmStep = AlarmSolutionStep::Alarm; //出现报警
-      }
-    }else{ //如果alarmStep表明非空闲，则尝试解决报警
-      switch(alarmStep){
-        case AlarmSolutionStep::RequestSolve:
-          alarmStep = BLDCMotor::ASS_Disable;
-        break;
-        case BLDCMotor::ASS_Disable:
-          alarmSolutionTimer.start();
-          setEnabled(false);
-          alarmStep = BLDCMotor::ASS_WaitDisable;
-        break;
-        case BLDCMotor::ASS_WaitDisable:
-          if(alarmSolutionTimer.checkTimedOut()){
-            alarmStep = BLDCMotor::ASS_Enable;
-          }
-        break;
-        case BLDCMotor::ASS_Enable:
-          alarmSolutionTimer.start();
-          setEnabled(true);
-          alarmStep = BLDCMotor::ASS_WaitEnable;
-        break;
-        case BLDCMotor::ASS_WaitEnable:
-          if(alarmSolutionTimer.checkTimedOut()){
-            alarmStep = BLDCMotor::ASS_WaitAlarmRecover;
-          }
-        break;
-        case BLDCMotor::ASS_WaitAlarmRecover:
-          alarmStep = AlarmSolutionStep::Idle;
-          if(alarm){  //无法消除报警
-            setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
-          }else{
-            if(getAlarm() != AlarmType::NoAlarm) resetAlarm(); //报警已经消除
-          }
-        break;
-      }
-    }
+    alarmSolutionUpdate();
     if(run){
       if(pinSpeed != -1){ //转速反馈
         //ioRead(pinSpeed);

@@ -31,7 +31,6 @@ protected:
   bool busyState;
   bool pulseState;
   uint8_t edgeMode;
-  uint8_t alarmStep;
 
 public:
   static constexpr uint8_t PeriType = PeripheralType::StepMotor;
@@ -43,11 +42,11 @@ public:
   static constexpr uint8_t EdgeMode_Rise = 1;
   static constexpr uint8_t EdgeMode_Both = 2;
 //报警解决器
-  static constexpr uint16_t ASS_Disable = 3;
-  static constexpr uint16_t ASS_WaitDisable = 4;
-  static constexpr uint16_t ASS_Enable = 5;
-  static constexpr uint16_t ASS_WaitEnable = 6;
-  static constexpr uint16_t ASS_WaitAlarmRecover = 7;
+  static constexpr uint16_t ASS_Disable = 10;
+  static constexpr uint16_t ASS_WaitDisable = 11;
+  static constexpr uint16_t ASS_Enable = 12;
+  static constexpr uint16_t ASS_WaitEnable = 13;
+  static constexpr uint16_t ASS_WaitAlarmRecover = 14;
   MSTimer alarmSolutionTimer;
   uint16_t &getReadWriteStateFlagRef(){
     return rwState;
@@ -69,7 +68,6 @@ public:
       pinAlarm(pAlarm),
       pulseState(false),
       stepAccumlator(0),
-      alarmStep(AlarmSolutionStep::Idle),
       edgeMode(EdgeMode_Rise),
       alarmSolutionTimer(2000)
   {
@@ -106,7 +104,6 @@ public:
     busyState = state;
   }
   inline bool flipPulse(){
-    if(!run) return false;
     pulseState = !pulseState;
     ioWrite(pinPulse,pulseState);
     if(edgeMode == EdgeMode_Both){
@@ -135,66 +132,66 @@ public:
   bool hasHardwareAlarm(){
     return pinAlarm != -1 ? ioRead(pinAlarm) : false;
   }
-  //报警解决
-  bool isWaitingSolveAlarm(){
-    return alarmStep == AlarmSolutionStep::Alarm;
-  }
-  bool isSolvingAlarm(){
-    return alarmStep > AlarmSolutionStep::Alarm;
-  }
-  bool isAlarmSolutionIdle(){
-    return alarmStep == AlarmSolutionStep::Idle;
-  }
-  void trySolveAlarm(){
-    if(alarmStep != AlarmSolutionStep::Idle){
-      alarmStep = AlarmSolutionStep::RequestSolve;
+  void alarmSolutionUpdate(){
+    bool alarm = hasHardwareAlarm();
+    if(alarmSolutionStep == AlarmSolutionStep::Idle){ //如果报警解决器空闲
+      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
+        if(alarmSolutionActionType == AlarmSolutionType::NoSolution){ //如果未设定则直接报警
+          setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
+        }else if(alarmSolutionActionType == AlarmSolutionType::AutoSolve){  //尝试自动解决
+          alarmTryToSolve();  //尝试解决
+        }else if(alarmSolutionActionType == AlarmSolutionType::ProgramSolve){
+          // 程序解决，不处理报警
+        }
+      }
+    }
+    switch(alarmSolutionStep){
+      case AlarmSolutionStep::RequestSolve:
+        alarmSolutionStep = StepMotor::ASS_Disable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 开始解决报警",periID,periType,periName);
+      break;
+      case StepMotor::ASS_Disable:
+        alarmSolutionTimer.start();
+        setEnabled(false);
+        alarmSolutionStep = StepMotor::ASS_WaitDisable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 关闭使能",periID,periType,periName);
+      break;
+      case StepMotor::ASS_WaitDisable:
+        if(alarmSolutionTimer.checkTimedOut()){
+          alarmSolutionStep = StepMotor::ASS_Enable;
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 延时",periID,periType,periName);
+        }
+      break;
+      case StepMotor::ASS_Enable:
+        alarmSolutionTimer.start();
+        setEnabled(true);
+        alarmSolutionStep = StepMotor::ASS_WaitEnable;
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 打开使能",periID,periType,periName);
+      break;
+      case StepMotor::ASS_WaitEnable:
+        if(alarmSolutionTimer.checkTimedOut()){
+          alarmSolutionStep = StepMotor::ASS_WaitAlarmRecover;
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 等待恢复",periID,periType,periName);
+        }
+      break;
+      case StepMotor::ASS_WaitAlarmRecover:
+        alarmSolutionStep = AlarmSolutionStep::Idle;
+        if(alarm){  //无法消除报警
+          setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 报警未消除，上报",periID,periType,periName);
+        }else{
+          if(getAlarm() != AlarmType::NoAlarm) resetAlarm(); //报警已经消除
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 报警已消除",periID,periType,periName);
+        }
+      break;
     }
   }
   void update(){
     if(alarmReset){ //尝试复位报警
       alarmReset = false;
       resetAlarm();
-      trySolveAlarm();
+      alarmTryToSolve();
     }
-    bool alarm = hasHardwareAlarm();
-    if(alarmStep == AlarmSolutionStep::Idle){ //报警解决器空闲
-      if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
-        alarmStep = AlarmSolutionStep::Alarm; //出现报警
-      }
-    }else{ //如果alarmStep表明非空闲，则尝试解决报警
-      switch(alarmStep){
-        case AlarmSolutionStep::RequestSolve:
-          alarmStep = StepMotor::ASS_Disable;
-        break;
-        case StepMotor::ASS_Disable:
-          alarmSolutionTimer.start();
-          setEnabled(false);
-          alarmStep = StepMotor::ASS_WaitDisable;
-        break;
-        case StepMotor::ASS_WaitDisable:
-          if(alarmSolutionTimer.checkTimedOut()){
-            alarmStep = StepMotor::ASS_Enable;
-          }
-        break;
-        case StepMotor::ASS_Enable:
-          alarmSolutionTimer.start();
-          setEnabled(true);
-          alarmStep = StepMotor::ASS_WaitEnable;
-        break;
-        case StepMotor::ASS_WaitEnable:
-          if(alarmSolutionTimer.checkTimedOut()){
-            alarmStep = StepMotor::ASS_WaitAlarmRecover;
-          }
-        break;
-        case StepMotor::ASS_WaitAlarmRecover:
-          alarmStep = AlarmSolutionStep::Idle;
-          if(alarm){  //无法消除报警
-            setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
-          }else{
-            if(getAlarm() != AlarmType::NoAlarm) resetAlarm(); //报警已经消除
-          }
-        break;
-      }
-    }
+    alarmSolutionUpdate();
   }
 };

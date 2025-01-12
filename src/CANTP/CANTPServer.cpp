@@ -19,6 +19,8 @@ CANTPServer::CANTPServer(HardwareCAN& canPhy, uint8_t staticDevices) : globalHea
 void CANTPServer::begin(uint8_t maxMtuSize, uint8_t canType) {
     receiveTimes = 0;
     globalHeartBeatTimer.start();
+    canConf.setMtuSize(maxMtuSize); // 8 Bytes
+    canConf.setCANType(canType);
 }
 
 // 加载设备列表（暂未实现）
@@ -94,108 +96,107 @@ void CANTPServer::onMessageReceived() {
     chead = canIdentifier;
     if (rxMsg.isRemote()) {	// 远程帧
         switch (packType) {
-            case CANTP_CONNECT_REQUEST:	// 当有设备请求连接
-                if (!isNewDeviceConnecting || isNewDeviceConnectTimedOut()) { // 如果没有设备在连接，或上一个连接已经超时
-                    isNewDeviceConnecting = true;   // 开始处理新连接
-                    ConnectingDevice.begin();	// 立刻对正在连接的设备初始化
-                    ConnectingDevice.setConnectionState(CANTPConnState::CONNECTING);
-                    CANConfig conf(0, CANType_CAN20B);
-                    txMsg.clear();
-                    CANTPFrameID frameIdentifier(CANTP_CONNECT_ALLOW, 0);
-                    txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-                    txMsg.setDataLength(0);
-                    txMsg.setExtend(false); // 标准帧
-                    txMsg.setRemote(false); // 数据帧
-                    hwCAN->send(txMsg); // 发送接受连接回包
-                    resetNewDeviceConnectTick();
-                } // 否则不回复接受设备连接请求
-                break;
-            case CANTP_UID_ARBITRATION: // 开始通过设备UniqueID仲裁
-                if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
-                    ConnectingDevice.addUniqueIDFragment(packIdentifier);   // 记录Unique片段
-                    ConnectingDevice.setConnectionState(CANTPConnState::ARBITRATING_UID);
-                    resetNewDeviceConnectTick();
-                }
-                break;
-            case CANTP_CONFIGURE:		// 接收设备的配置
-                if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
-                    ConnectingDevice.setCANConfig(*(CANConfig*)&(packIdentifier));
-                    ConnectingDevice.setConnectionState(CANTPConnState::CONFIGURING);
-                    resetNewDeviceConnectTick();
-                }
-                break;
-            case CANTP_EXPECTING_CAN_ID:   // 尝试使用期待的CAN ID
-                if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
-                    uint8_t id = searchProperSpace(packIdentifier); // 0表示未分配到地址，如果期待的ID不等于分配到的ID，则表示ID已占用
-                    ConnectingDevice.setConnectionState(CANTPConnState::EXPECTING_CAN_ID);
-                    ConnectingDevice.setDeviceID(id);
-                    txMsg.clear();
-                    CANTPFrameID frameIdentifier(CANTP_ASSIGNED_ID, id);
-                    txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-                    txMsg.setDataLength(0);
-                    txMsg.setExtend(false); // 标准帧
-                    txMsg.setRemote(false); // 数据帧
-                    hwCAN->send(txMsg); // 发送回获取到的CAN ID
-                }
-                break;
-            case CANTP_CONNECT:	   // 设备连接
-                if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
-                    onDeviceConnected(ConnectingDevice);
-                    isNewDeviceConnecting = false;  // 连接完成
-                    txMsg.clear();
-                    CANTPFrameID frameIdentifier(CANTP_CONNECTION_DONE, ConnectingDevice.getDeviceID());
-                    txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-                    txMsg.setDataLength(0);
-                    txMsg.setExtend(false); // 标准帧
-                    txMsg.setRemote(false); // 数据帧
-                    hwCAN->send(txMsg); // 向指定设备发送Connect Done
-                }
-                break;
-            case CANTP_DISCONNECT:   // 设备断开连接
-                if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
-                    ConnectingDevice.setConnectionState(CANTPConnState::DISCONNECTED);
-                    isNewDeviceConnecting = false;  // 连接完成
-                }
-            case CANTP_HEARTBEAT_CLIENT:	   // 接收到客户端心跳包
-                if (deviceList.count(packIdentifier) != 0 && deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
-                    deviceList.at(packIdentifier).resetclientSyncTimer();
-                }
-                break;
+        case CANTP_CONNECT_REQUEST:	// 当有设备请求连接
+            if (!isNewDeviceConnecting || isNewDeviceConnectTimedOut()) { // 如果没有设备在连接，或上一个连接已经超时
+                isNewDeviceConnecting = true;   // 开始处理新连接
+                ConnectingDevice.begin();	// 立刻对正在连接的设备初始化
+                ConnectingDevice.setConnectionState(CANTPConnState::CONNECTING);
+                txMsg.clear();
+                CANTPFrameID frameIdentifier(CANTP_CONNECT_ALLOW, canConf.getConfig());
+                txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+                txMsg.setDataLength(0);
+                txMsg.setExtend(false); // 标准帧
+                txMsg.setRemote(false); // 数据帧
+                hwCAN->send(txMsg); // 发送接受连接回包
+                resetNewDeviceConnectTick();
+            } // 否则不回复接受设备连接请求
+            break;
+        case CANTP_UID_ARBITRATION: // 开始通过设备UniqueID仲裁
+            if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
+                ConnectingDevice.addUniqueIDFragment(packIdentifier);   // 记录Unique片段
+                ConnectingDevice.setConnectionState(CANTPConnState::ARBITRATING_UID);
+                resetNewDeviceConnectTick();
+            }
+            break;
+        case CANTP_CONFIGURE:		// 接收设备的配置
+            if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
+                ConnectingDevice.setCANTPConfig(*(CANTPConfig*)&(packIdentifier));
+                ConnectingDevice.setConnectionState(CANTPConnState::CONFIGURING);
+                resetNewDeviceConnectTick();
+            }
+            break;
+        case CANTP_EXPECTING_CAN_ID:   // 尝试使用期待的CAN ID
+            if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
+                uint8_t id = searchProperSpace(packIdentifier); // 0表示未分配到地址，如果期待的ID不等于分配到的ID，则表示ID已占用
+                ConnectingDevice.setConnectionState(CANTPConnState::EXPECTING_CAN_ID);
+                ConnectingDevice.setDeviceID(id);
+                txMsg.clear();
+                CANTPFrameID frameIdentifier(CANTP_ASSIGNED_ID, id);
+                txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+                txMsg.setDataLength(0);
+                txMsg.setExtend(false); // 标准帧
+                txMsg.setRemote(false); // 数据帧
+                hwCAN->send(txMsg); // 发送回获取到的CAN ID
+            }
+            break;
+        case CANTP_CONNECT:	   // 设备连接
+            if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
+                onDeviceConnected(ConnectingDevice);
+                isNewDeviceConnecting = false;  // 连接完成
+                txMsg.clear();
+                CANTPFrameID frameIdentifier(CANTP_CONNECTION_DONE, ConnectingDevice.getDeviceID());
+                txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+                txMsg.setDataLength(0);
+                txMsg.setExtend(false); // 标准帧
+                txMsg.setRemote(false); // 数据帧
+                hwCAN->send(txMsg); // 向指定设备发送Connect Done
+            }
+            break;
+        case CANTP_DISCONNECT:   // 设备断开连接
+            if (isNewDeviceConnecting && !isNewDeviceConnectTimedOut()) { // 如果设备正在连接，并且没有超时
+                ConnectingDevice.setConnectionState(CANTPConnState::DISCONNECTED);
+                isNewDeviceConnecting = false;  // 连接完成
+            }
+        case CANTP_HEARTBEAT_CLIENT:	   // 接收到客户端心跳包
+            if (deviceList.count(packIdentifier) != 0 && deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
+                deviceList.at(packIdentifier).resetClientSyncTimer();
+            }
+            break;
         }
     } else {	// 数据帧
         switch (packType) {
-            case CANTP_SHORT_DATA:  // 短数据包
-                break;
-            case CANTP_DATA_HEAD:   // 数据头
-                if (deviceList.count(packIdentifier) != 0) {
-                    if (deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
-                        deviceList.at(packIdentifier).resetclientSyncTimer();	// 只要收到数据包就复位
-                    } else {	// 如果不在线
-                        txMsg.clear();
-                        CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
-                        txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-                        txMsg.setDataLength(0);
-                        txMsg.setExtend(false); // 标准帧
-                        txMsg.setRemote(false); // 数据帧
-                        hwCAN->send(txMsg); // 向指定设备发送Connect Lost
-                    }
+        case CANTP_SHORT_DATA:  // 短数据包
+            break;
+        case CANTP_DATA_HEAD:   // 数据头
+            if (deviceList.count(packIdentifier) != 0) {
+                if (deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
+                    deviceList.at(packIdentifier).resetClientSyncTimer();	// 只要收到数据包就复位
+                } else {	// 如果不在线
+                    txMsg.clear();
+                    CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
+                    txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+                    txMsg.setDataLength(0);
+                    txMsg.setExtend(false); // 标准帧
+                    txMsg.setRemote(false); // 数据帧
+                    hwCAN->send(txMsg); // 向指定设备发送Connect Lost
                 }
-                break;
-            case CANTP_DATA:	// 数据本体
-                if (deviceList.count(packIdentifier) != 0) {
-                    if (deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
-                        deviceList.at(packIdentifier).resetclientSyncTimer();	// 只要收到数据包就复位
-                    } else {	// 如果接收到的数据来自于离线的设备
-                        txMsg.clear();
-                        CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
-                        txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-                        txMsg.setDataLength(0);
-                        txMsg.setExtend(false); // 标准帧
-                        txMsg.setRemote(false); // 数据帧
-                        hwCAN->send(txMsg); // 向指定设备发送Connect Lost
-                    }
+            }
+            break;
+        case CANTP_DATA:	// 数据本体
+            if (deviceList.count(packIdentifier) != 0) {
+                if (deviceList.at(packIdentifier).getConnectionState() == CANTPConnState::CONNECTED) {	// 仅在线有效
+                    deviceList.at(packIdentifier).resetClientSyncTimer();	// 只要收到数据包就复位
+                } else {	// 如果接收到的数据来自于离线的设备
+                    txMsg.clear();
+                    CANTPFrameID frameIdentifier(CANTP_CONNECTION_LOST, packIdentifier);
+                    txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+                    txMsg.setDataLength(0);
+                    txMsg.setExtend(false); // 标准帧
+                    txMsg.setRemote(false); // 数据帧
+                    hwCAN->send(txMsg); // 向指定设备发送Connect Lost
                 }
-                break;
+            }
+            break;
         }
     }
 }
@@ -251,9 +252,9 @@ CANTPServerDevice::CANTPServerDevice(const CANTPServerDevice& other) {
 void CANTPServerDevice::begin() {
     connection = CANTPConnState::DISCONNECTED;
     deviceID = sizeof(CANTPServerDevice);
-    canConf.canType = CANType_CAN20B;
-    canConf.mtu = 0; // 8 Bytes
-    mtuSize = 1 << (canConf.mtu + 3);
+    canConf.setCANType(CANType::CAN20B);
+    canConf.setMtuCode(0); // 8 Bytes
+    mtuSize = canConf.getMtuSize();
     uniqueIDFragmentAppendLength = 0;
     memset(deviceName, 0, sizeof(deviceName));
 }

@@ -9,6 +9,7 @@ CANTPClient::CANTPClient(HardwareCAN &can)
       serverSyncTimeOutTimer(2500),
       connectingTimeOutTimer(5000),
       receiveTimes(0),
+      connectTimes(0),
       hbTimes(0) {}
 
 // 初始化方法
@@ -126,6 +127,7 @@ void CANTPClient::tryToJoinBus() {
     txMsg.setExtend(false);
     txMsg.setRemote(true);
     hwCAN->send(txMsg);
+    connectTimes++;
 }
 
 // 内部连接状态改变时触发
@@ -177,9 +179,9 @@ void CANTPClient::update() {
                 txMsg.setRemote(true);
                 hwCAN->send(txMsg);
             }
-            if (serverSyncTimeOutTimer.checkTimedOut()) {
-                setConnectionState(CANTPConnState::DISCONNECTED);
-            }
+        }
+        if (serverSyncTimeOutTimer.checkTimedOut()) {
+            setConnectionState(CANTPConnState::DISCONNECTED);
         }
         break;
     }

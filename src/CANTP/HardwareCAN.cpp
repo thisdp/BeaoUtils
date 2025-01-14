@@ -58,13 +58,14 @@ uint16_t CANMessage::lengthToLengthCode(uint16_t length, uint16_t maxSize){
 #if defined(ESP32)
 //HardwareCAN::HardwareCAN(TWAICAN &argCan) : can(&argCan), rxMessage(32), txMessage(32), isInited(false) {}
 #else
-HardwareCAN::HardwareCAN(CAN_HandleTypeDef &argCan) : can(&argCan), rxMessage(32), txMessage(32), isInited(false) {}
+HardwareCAN::HardwareCAN(CAN_HandleTypeDef &argCan) : can(&argCan), rxMessage(32), txMessage(32), isInited(false), hasTxMessageEmergency(false), txMsg(0) {}
 #endif
 
 void HardwareCAN::begin(uint16_t maxLength, uint32_t baud, uint32_t baudData){
     isInited = true;
     rxTempMessage.data.requestSpace(maxLength);
     txTempMessage.data.requestSpace(maxLength);
+    txMessageEmergency.data.requestSpace(maxLength);
     baudrate = baud;
     baudrateData = baudData;
 }
@@ -94,6 +95,20 @@ bool HardwareCAN::send(CANMessage &msg) {
     return true;
 }
 
+bool HardwareCAN::emergencySend(CANMessage &msg) {
+    if (hasEmergencyMessage()) return false;
+    hasTxMessageEmergency = true;
+    txMessageEmergency = msg;
+    return true;
+}
+
+bool HardwareCAN::hasEmergencyMessage(){
+    return hasTxMessageEmergency;
+}
+
+/*bool HardwareCAN::isBusBlocked(){
+}*/
+
 bool HardwareCAN::abortSend() {    //取消发送
 #if defined(ESP32)
 // ESP32-specific implementation if any
@@ -101,6 +116,7 @@ bool HardwareCAN::abortSend() {    //取消发送
     HAL_CAN_AbortTxRequest(can,CAN_TX_MAILBOX0);
     HAL_CAN_AbortTxRequest(can,CAN_TX_MAILBOX1);
     HAL_CAN_AbortTxRequest(can,CAN_TX_MAILBOX2);
+    txMsg->txStateHandle = 0;
 #endif
 }
 
@@ -122,43 +138,36 @@ void HardwareCAN::doSend() {
 #if defined(ESP32)
 // ESP32-specific implementation if any
 #else
-    if (!txMessage.isEmpty()) { // 如果有消息待发送
-        CANMessage* txMsg;
-        if (txMessage.peek(txMsg,0)) {  //查询第一个待发送的消息
-            switch(txMsg->txStateHandle){
-            case 0: //待发送
-                if (HAL_CAN_GetTxMailboxesFreeLevel(can) == 3) { // 如果没有正在传输
-                    CAN_TxHeaderTypeDef txHead;
-                    memset(&txHead, 0, sizeof(txHead));
-                    txMsg->writeHeadTo(&txHead);
-                    uint32_t txUsingMailBox;
-                    HAL_CAN_AddTxMessage(can, &txHead, txMsg->getData(), &txUsingMailBox);
-                    txMsg->txStateHandle = 1;   //正在传送
-                }
-            break;
-            case 1:
-                if (HAL_CAN_GetTxMailboxesFreeLevel(can) == 3) { // 如果没有正在传输
-                    txMsg->txStateHandle = 2;   //传送完成
-                }
-            break;
-            case 2: //发送成功
-
-            break;
-            default: //发送失败
-                //待处理
-            break;
+    if(txMsg){  //如果有数据正在发送
+        if(HAL_CAN_GetTxMailboxesFreeLevel(can) != 3) return; // 如果有数据还在传输
+        switch(txMsg->txStateHandle){
+        case 0: //等待发送
+            txMsg->txStateHandle = 1;   //等待传送完成
+            CAN_TxHeaderTypeDef txHead;
+            memset(&txHead, 0, sizeof(txHead));
+            txMsg->writeHeadTo(&txHead);
+            uint32_t txUsingMailBox;
+            HAL_CAN_AddTxMessage(can, &txHead, txMsg->getData(), &txUsingMailBox);  //开始传送
+        break;
+        case 1:
+            txMsg->txStateHandle = 2;
+            if(txMsg == &txMessageEmergency){   //如果是紧急包
+                hasTxMessageEmergency = false;  //复位
+            }else{  //常规包
+                txMessage.dequeue();    //出列
             }
-        }else{  //出现错误，删除消息
-            txMessage.dequeue();
+            txMsg = 0;
+        break;
         }
-    }
-    if (HAL_CAN_GetTxMailboxesFreeLevel(can) == 3) { // 如果没有正在传输
-        CAN_TxHeaderTypeDef txHead;
-        memset(&txHead, 0, sizeof(txHead));
-        txMsg->writeHeadTo(&txHead);
-        uint32_t txUsingMailBox;
-        HAL_CAN_AddTxMessage(can, &txHead, txMsg->getData(), &txUsingMailBox);
-        txMsg->txStateHandle = 1;   //正在传送
+    }else{ 
+        if(hasTxMessageEmergency){ // 如果有紧急消息需要发送
+            txMsg = &txMessageEmergency;
+            txMsg->txStateHandle = 0;
+        }else if(!txMessage.isEmpty()){ // 如果有常规消息需要发送
+            if(txMessage.peek(txMsg,0)){
+                txMsg->txStateHandle = 0;
+            }
+        }
     }
 #endif
 }

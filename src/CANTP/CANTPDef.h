@@ -33,9 +33,9 @@
 
 enum CANTPDataPackType : uint8_t {
     CANTP_CONNECTION_LOST = 0,
-    CANTP_CONNECTION_DONE = 1,
-    CANTP_ASSIGNED_ID = 2,
-    CANTP_CONNECT_ALLOW = 3,
+    CANTP_CONNECTION_DONE = 1,  //8. *1
+    CANTP_ASSIGNED_ID = 2,      //6. *1
+    CANTP_CONNECT_ALLOW = 3,    //2. *1
     CANTP_SHORT_DATA = 4,
     CANTP_DATA_HEAD = 5,
     CANTP_DATA = 6,
@@ -44,12 +44,12 @@ enum CANTPDataPackType : uint8_t {
 enum CANTPRemotePackType : uint8_t {
     CANTP_HEARTBEAT_SERVER = 0,
     CANTP_HEARTBEAT_CLIENT = 1,
-    CANTP_DISCONNECT = 2,
-    CANTP_CONNECT = 3,
-    CANTP_EXPECTING_CAN_ID = 4,
-    CANTP_CONFIGURE = 5,
-    CANTP_UID_ARBITRATION = 6,
-    CANTP_CONNECT_REQUEST = 7,
+    CANTP_DISCONNECT = 2,      //7. *1
+    CANTP_CONNECT = 3,         //7. *1
+    CANTP_EXPECTING_CAN_ID = 4,//5. *1
+    CANTP_CONFIGURE = 5,       //4. *1
+    CANTP_UID_ARBITRATION = 6, //3. *N+2 , 12+2 STM32;
+    CANTP_CONNECT_REQUEST = 7, //1. *1
 };
 
 enum class CANTPConnState : uint8_t {

@@ -114,7 +114,6 @@ public:
     return alarmSolutionStep != AlarmSolutionStep::Idle;
   }
   void alarmTryToSolve(){
-    if(getAlarm() == AlarmType::NoAlarm) return;
     alarmSolutionStep = AlarmSolutionStep::RequestSolve;
   }
   virtual void alarmSolutionUpdate() = 0;

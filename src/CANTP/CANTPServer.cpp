@@ -210,13 +210,15 @@ void CANTPServer::update() {
     }
     if (globalHeartBeatTimer.checkTimedOut()) {
         globalHeartBeatTimer.start();
-        txMsg.clear();
-        CANTPFrameID frameIdentifier(CANTP_HEARTBEAT_SERVER, 0);
-        txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
-        txMsg.setDataLength(0);
-        txMsg.setExtend(false);
-        txMsg.setRemote(true);
-        hwCAN->send(txMsg);
+        if(!hwCAN->hasEmergencyMessage()){
+            txMsg.clear();
+            CANTPFrameID frameIdentifier(CANTP_HEARTBEAT_SERVER, 0);
+            txMsg.setStdIdentifier(frameIdentifier.getStdIdentifier());
+            txMsg.setDataLength(0);
+            txMsg.setExtend(false);
+            txMsg.setRemote(true);
+            hwCAN->emergencySend(txMsg);
+        }
     }
     for (auto& kv : deviceList) {
         if (kv.first != 0) {

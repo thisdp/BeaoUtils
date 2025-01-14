@@ -52,17 +52,17 @@ public:
     clear();
   }
   bool setRun(bool state){
-    run = state;
     responseTimer.start();
+    run = state;
     return true;
   }
   bool isRunning(){ return run; }
   void start(){
     responseTimer.start();
     clear();
-    recording = true;
     lastState[ENA] = ioRead(pinENA);
     lastState[ENB] = ioRead(pinENB);
+    recording = true;
   }
   
   void stop(){

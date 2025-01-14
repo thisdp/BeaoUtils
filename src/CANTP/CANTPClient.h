@@ -23,6 +23,7 @@ private:
     CANMessage rxMsg;
     CANMessage txMsg;
     CANTPDevice device;
+    uint32_t connectTimes;
 
 public:
     uint32_t receiveTimes;

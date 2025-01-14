@@ -17,7 +17,7 @@ public:
   virtual uint32_t getCurrentTime() = 0;
 protected:
   uint32_t duration;
-  uint32_t startTime;
+  volatile uint32_t startTime;
   uint32_t restartTimes;
   bool activated;
 };

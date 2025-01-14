@@ -136,11 +136,14 @@ public:
     bool alarm = hasHardwareAlarm();
     if(alarmSolutionStep == AlarmSolutionStep::Idle){ //如果报警解决器空闲
       if(alarm && getAlarm() == AlarmType::NoAlarm){  //第一次遇到报警
+        globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 遇到报警，使用%d方案",periID,periType,periName,alarmSolutionActionType);
         if(alarmSolutionActionType == AlarmSolutionType::NoSolution){ //如果未设定则直接报警
           setAlarm(AlarmType::MotorHardwareAlarm);  //设置报警
         }else if(alarmSolutionActionType == AlarmSolutionType::AutoSolve){  //尝试自动解决
           alarmTryToSolve();  //尝试解决
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 自动尝试解决",periID,periType,periName);
         }else if(alarmSolutionActionType == AlarmSolutionType::ProgramSolve){
+          globalPDL.printfln("[报警解决器][ID:%d][类型:%d]%s: 外部处理",periID,periType,periName);
           // 程序解决，不处理报警
         }
       }

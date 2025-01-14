@@ -138,9 +138,12 @@ private:
 #endif
     DynamicFIFO<CANMessage> rxMessage;
     DynamicFIFO<CANMessage> txMessage;
+    CANMessage txMessageEmergency;
+    bool hasTxMessageEmergency;
     CANMessage rxTempMessage;
     CANMessage txTempMessage;
 
+    CANMessage* txMsg;  //正在发送的数据
 public:
 #if defined(ESP32)
     //HardwareCAN(TWAICAN &argCan);
@@ -163,6 +166,9 @@ public:
     bool send(uint32_t identifier, uint8_t* data, uint8_t length, bool isRemote = false, bool isExtend = false, uint32_t extIdentifier = 0);
     bool send(CANMessage &msg);
     bool abortSend();
+    bool emergencySend(CANMessage &msg);
+    bool hasEmergencyMessage();
+    //bool isBusBlocked();    //总线阻塞
     void doReceive();
     void doSend();
     void update();

@@ -1,3 +1,4 @@
+#pragma once
 #include "TPSCounter/TPSCounter.h"
 #include "STimer/STimer.h"
 #include "FIFO/FIFO.h"
@@ -6,9 +7,6 @@
 #include "MemoryController/MemoryController.h"
 #include "AverageFilter/AverageFilter.h"
 #include "ProgramStepManager/ProgramStepManager.h"
-#ifdef Beao_Transmission_Protocol
-#include "CANTP/CANTP.h"
-#endif
 #ifdef Beao_Industry_Peripheral
 #include "Peripheral/AlarmManager.h"
 #include "Peripheral/AlarmDefinition.h"

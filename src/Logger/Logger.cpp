@@ -14,7 +14,7 @@ void Logger::setStream(Stream &stream){
     _logStream = &stream;
 }
 
-size_t const Logger::printf(const char *format, ...){
+size_t Logger::printf(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -35,7 +35,7 @@ size_t const Logger::printf(const char *format, ...){
 }
 
 
-size_t const Logger::printfln(const char *format, ...){
+size_t Logger::printfln(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -55,7 +55,7 @@ size_t const Logger::printfln(const char *format, ...){
     return len;
 }
 
-size_t const Logger::printf_lock(const char *format, ...){
+size_t Logger::printf_lock(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -78,7 +78,7 @@ size_t const Logger::printf_lock(const char *format, ...){
     return len;
 }
 
-size_t const Logger::printfln_lock(const char *format, ...){
+size_t Logger::printfln_lock(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -101,21 +101,21 @@ size_t const Logger::printfln_lock(const char *format, ...){
     return len;
 }
 
-void const Logger::print(const char *str){
+void Logger::print(const char *str){
     if(!_logStream) return;
     _logStream->print(str);
 }
 
-void const Logger::println(const char *str){
+void Logger::println(const char *str){
     if(!_logStream) return;
     _logStream->println(str);
 }
 
 /*Logger Keeper*/
-LoggerKeeper::LoggerKeeper(uint16_t size) : _loggerFIFO(size), onLog(0) {
+LoggerKeeper::LoggerKeeper(uint16_t size) : onLog(0), _loggerFIFO(size) {
     _loggerFIFO.setOverwriteOnFull(true);
 }
-LoggerKeeper::LoggerKeeper(Stream &stream, uint16_t size): Logger(stream), _loggerFIFO(size), onLog(0) {
+LoggerKeeper::LoggerKeeper(Stream &stream, uint16_t size): Logger(stream), onLog(0), _loggerFIFO(size) {
     _loggerFIFO.setOverwriteOnFull(true);
 }
 
@@ -141,7 +141,7 @@ String LoggerKeeper::peek(uint32_t index){
     return *str;
 }
 
-size_t const LoggerKeeper::printf(const char *format, ...){
+size_t LoggerKeeper::printf(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -165,7 +165,7 @@ size_t const LoggerKeeper::printf(const char *format, ...){
 }
 
 
-size_t const LoggerKeeper::printfln(const char *format, ...){
+size_t LoggerKeeper::printfln(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -188,7 +188,7 @@ size_t const LoggerKeeper::printfln(const char *format, ...){
     return len;
 }
 
-size_t const LoggerKeeper::printf_lock(const char *format, ...){
+size_t LoggerKeeper::printf_lock(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -214,7 +214,7 @@ size_t const LoggerKeeper::printf_lock(const char *format, ...){
     return len;
 }
 
-size_t const LoggerKeeper::printfln_lock(const char *format, ...){
+size_t LoggerKeeper::printfln_lock(const char *format, ...){
     if(!_logStream) return 0;
     va_list arg;
     va_start(arg, format);
@@ -240,7 +240,7 @@ size_t const LoggerKeeper::printfln_lock(const char *format, ...){
     return len;
 }
 
-void const LoggerKeeper::print(const char *str){
+void LoggerKeeper::print(const char *str){
     if(!_logStream) return;
     _logStream->print(str);
     String bStr(str);
@@ -248,7 +248,7 @@ void const LoggerKeeper::print(const char *str){
     if (onLog != 0) onLog(this,str);
 }
 
-void const LoggerKeeper::println(const char *str){
+void LoggerKeeper::println(const char *str){
     if(!_logStream) return;
     _logStream->println(str);
     String bStr(str);

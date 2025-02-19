@@ -1,3 +1,5 @@
+#pragma once
+#include "Arduino.h"
 class TPSCounter{
 public:
   uint32_t TPS;

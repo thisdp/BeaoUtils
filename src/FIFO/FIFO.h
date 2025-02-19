@@ -93,7 +93,7 @@ private:
     bool overwriteOnFull;
     inline uint32_t getRear() const { return (front + len) % SIZE; }
 public:
-    DynamicFIFO(uint32_t size) : front(0), len(0), overwriteOnFull(false) {
+    DynamicFIFO(uint32_t size = 8) : front(0), len(0), overwriteOnFull(false) {
         SIZE = size;
         data = new T[SIZE];
     }

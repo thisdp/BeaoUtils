@@ -8,12 +8,12 @@ public:
     Logger();
     Logger(Stream &stream);
     void setStream(Stream &stream);
-    const size_t printf(const char *format, ...);
-    const size_t printfln(const char *format, ...);
-    const size_t printf_lock(const char *format, ...);
-    const size_t printfln_lock(const char *format, ...);
-    const void print(const char *str);
-    const void println(const char *str);
+    size_t printf(const char *format, ...);
+    size_t printfln(const char *format, ...);
+    size_t printf_lock(const char *format, ...);
+    size_t printfln_lock(const char *format, ...);
+    void print(const char *str);
+    void println(const char *str);
 protected:
     Stream *_logStream;
     bool _logLock;
@@ -26,12 +26,12 @@ public:
     LoggerKeeper(uint16_t size);
     LoggerKeeper(Stream &stream,uint16_t size);
     void setLoggerKeepSize(uint16_t size);
-    const size_t printf(const char *format, ...);
-    const size_t printfln(const char *format, ...);
-    const size_t printf_lock(const char *format, ...);
-    const size_t printfln_lock(const char *format, ...);
-    const void print(const char *str);
-    const void println(const char *str);
+    size_t printf(const char *format, ...);
+    size_t printfln(const char *format, ...);
+    size_t printf_lock(const char *format, ...);
+    size_t printfln_lock(const char *format, ...);
+    void print(const char *str);
+    void println(const char *str);
     int available();
     String read();
     String peek(uint32_t index);

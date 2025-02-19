@@ -1,42 +1,33 @@
 #pragma once
-
+#include "Arduino.h"
+#include <string.h>
 #define CAST(OBJ,typeName) (*((typeName*)(&OBJ)))
 #define pCAST(OBJ,typeName) ((typeName*)OBJ)
+using namespace std;
 
 class MemoryController {
 public:
+    // Constructor declaration
+    MemoryController(size_t hp, size_t size = 4096);
+
+    // Method declarations
+    void* malloc(size_t size);
+    
+    template<typename T>
+    T* alloc(size_t count = 1);
+
+    template<typename T>
+    T& allocref(size_t count = 1);
+
+    // Member variables
     size_t heapHead;
     size_t heapPointer;
     size_t heapSize;
-    MemoryController(size_t hp, size_t size = 4096) : heapPointer(hp), heapSize(size), heapHead(hp) {}
-    void* malloc(size_t size) {
-        if (size > 4) {
-            size_t alignment = 4; // 4字节对齐
-            heapPointer = (heapPointer + (alignment - 1)) & ~(alignment - 1);
-        }
-        if (heapPointer + size >= heapHead+heapSize) return 0;  //Out of memory
-        void* ptr = (void*)heapPointer;
-        heapPointer += size;
-        memset(ptr, 0, size);
-        return ptr;
-    }
-    template<typename T>
-    T* alloc(size_t count = 1) {
-        return (T*)malloc(sizeof(T) * count);
-    }
-    template<typename T>
-    T& allocref(size_t count = 1) {
-        return *((T*)malloc(sizeof(T) * count));
-    }
 };
 
-void* operator new(size_t size, MemoryController& m) {
-    return m.malloc(size);
-}
-
-void* operator new[](size_t size, MemoryController& m) {
-    return m.malloc(size);
-}
+// Placement new operators
+void* operator new(size_t size, MemoryController& m);
+void* operator new[](size_t size, MemoryController& m);
 
 /*
 Example:

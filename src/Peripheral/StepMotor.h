@@ -66,8 +66,9 @@ public:
       pinDirection(pDirection),
       pinPulse(pPulse),
       pinAlarm(pAlarm),
-      pulseState(false),
       stepAccumlator(0),
+      busyState(false),
+      pulseState(false),
       edgeMode(EdgeMode_Rise),
       alarmSolutionTimer(2000)
   {

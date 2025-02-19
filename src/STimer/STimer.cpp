@@ -1,6 +1,10 @@
-#pragma once
 #include "STimer.h"
-STimerBase::STimerBase(uint32_t tDuration) : duration(tDuration), activated(false), startTime(0){}
+STimerBase::STimerBase(uint32_t tDuration) :
+    duration(tDuration),
+    startTime(0),
+    restartTimes(0),
+    activated(false){}
+
 bool STimerBase::start(){
     startTime = getCurrentTime();
     activated = true;

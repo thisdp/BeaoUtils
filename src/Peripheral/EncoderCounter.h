@@ -45,8 +45,8 @@ public:
     BasicIndustrialPeripheral(PeriType),
     pinENA(rA),
     pinENB(rB),
-    encoderTiming(0),
-    responseTimer(2000)
+    responseTimer(2000),
+    encoderTiming(0)
   {
     periName = periCustomName,
     clear();

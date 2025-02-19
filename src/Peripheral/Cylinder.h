@@ -26,28 +26,28 @@ protected:
     uint16_t rState;  //外部只读状态
   };
 
+  bool lastState;     //上个状态
   bool manualStateBefore; //用于同步
 
-  uint16_t goHomeDelay;     //去原点延时
-  uint16_t goMoveDelay;     //去动点延时
-  uint16_t goHomeTimeOut;   //去原点超时
-  uint16_t goMoveTimeOut;   //去动点超时
+  //uint16_t goHomeDelay;     //去原点延时
+  //uint16_t goMoveDelay;     //去动点延时
+  //uint16_t goHomeTimeOut;   //去原点超时
+  //uint16_t goMoveTimeOut;   //去动点超时
 
+  int8_t pinCylinder; //输出
+  int8_t pinHome;     //输入，原点
+  int8_t pinMove;     //输入，动点
+  bool homeState;
+  bool moveState;
   //定时器
   MSTimer goHomeDelayTimer;
   MSTimer goMoveDelayTimer;
   MSTimer goHomeTimeOutTimer;
   MSTimer goMoveTimeOutTimer;
 
-  int8_t pinCylinder; //输出
-  int8_t pinHome;     //输入，原点
-  int8_t pinMove;     //输入，动点
-  bool lastState;     //上个状态
   bool forceSuccessGoHomeTimeout; //去原点超时强制成功
   bool forceSuccessGoMoveTimeout; //去动点超时强制成功
 
-  bool homeState;
-  bool moveState;
 
 public:
   uint16_t &getReadWriteStateFlagRef(){
@@ -66,13 +66,29 @@ public:
       bool forceSuccessWhenGoHomeTimeout = false, bool forceSuccessWhenGoMoveTimeout = false
     ) :
       BasicIndustrialPeripheral(PeriType),
+
+      alarmReset(false),
       manualState(false),
-      manualStateBefore(false),
-      autoState(false),
+      reserved1(0),
+
       run(false),
+      currentState(false),
+      forceManual(false),
+      autoState(false),
+      atHome(false),
+      atMove(false),
+      reserved2(0),
+
+      lastState(false),
+      manualStateBefore(false),
+      
       pinCylinder(execPin),
       pinHome(inputHome),
       pinMove(inputMove),
+
+      homeState(false),
+      moveState(false),
+
       goHomeDelayTimer(timeGoHomeDelay),
       goMoveDelayTimer(timeGoMoveDelay),
       goHomeTimeOutTimer(timeGoHomeTimeOut),
@@ -80,7 +96,6 @@ public:
       forceSuccessGoHomeTimeout(forceSuccessWhenGoHomeTimeout),
       forceSuccessGoMoveTimeout(forceSuccessWhenGoMoveTimeout)
   {
-    lastState = false;
     periName = periCustomName;
     setNotify(true);
   }

@@ -43,6 +43,7 @@ public:
 	bool getParameterFloat(int32_t index, float &value);
 	bool getParameterString(int32_t index, String &value);
 	bool getParameterChar(int32_t index, char &value);
+
 	const char *getCurrentCommandName();
 	const char *getCurrentCommandDescription();
 	SerialCommand currentCommand;

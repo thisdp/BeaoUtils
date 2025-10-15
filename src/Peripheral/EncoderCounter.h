@@ -114,13 +114,13 @@ public:
           if(encoderTiming > encoderTimingTore || encoderTiming < -encoderTimingTore){    //编码器误码故障
               if(encoderTiming > encoderTimingTore){  //仅A相运动，B相无动作
                   setAlarm(AlarmType::EncoderHardwareBPhaseAlarm);
-              }else if(encoderTiming < -encoderTimingTore){  //仅A相运动，B相无动作
+              }else if(encoderTiming < -encoderTimingTore){  //仅B相运动，A相无动作
                   setAlarm(AlarmType::EncoderHardwareAPhaseAlarm);
               }
           }
           if(responseTimer.checkTimedOut()){
               dblogln("开始时间 %d %d %d",responseTimer.getStartTime(),responseTimer.getCurrentTime(),responseTimer.getPassedTime());
-              setAlarm(AlarmType::EncoderHardwareAlarm);  //无信号故障
+              //setAlarm(AlarmType::EncoderHardwareAlarm);  //无信号故障
           }
       }
     }

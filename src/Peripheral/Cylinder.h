@@ -178,7 +178,7 @@ public:
           goMoveTimeOutTimer.startIfNotActivated();
           if(goMoveTimeOutTimer.checkTimedOut()){ //如果超时
             goMoveTimeOutTimer.stop();
-            if(homeState){  //如果在原点
+            if(homeState && !forceSuccessGoMoveTimeout){  //如果在原点，并且没有启用强制到达
               setAlarm(AlarmType::CylinderGoMoveButHasHome);  //报警
             }else if(!moveState){ //如果没有到达动点
               if(forceSuccessGoMoveTimeout){ //如果启用强制到达
@@ -208,7 +208,7 @@ public:
           goHomeTimeOutTimer.startIfNotActivated();
           if(goHomeTimeOutTimer.checkTimedOut()){ //如果超时
             goHomeTimeOutTimer.stop();
-            if(moveState){  //如果在动点
+            if(moveState && !forceSuccessGoHomeTimeout){  //如果在动点，并且没有启用强制到达
               setAlarm(AlarmType::CylinderGoHomeButHasMove);  //报警
             }else if(!homeState){ //如果没有到达原点
               if(forceSuccessGoHomeTimeout){ //如果启用强制到达

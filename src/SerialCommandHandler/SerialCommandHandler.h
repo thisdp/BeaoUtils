@@ -47,6 +47,24 @@ public:
 	const char *getCurrentCommandName();
 	const char *getCurrentCommandDescription();
 	SerialCommand currentCommand;
+
+	Stream *getSerial();
+	Stream *getDebugSerial();
+
+    template<typename... Args>
+    void printf(const char* format, Args&&... args) {
+        if (debugSerial) {
+            debugSerial->printf(format, std::forward<Args>(args)...);
+        }
+    }
+
+    template<typename... Args>
+    void printf(const __FlashStringHelper* format, Args&&... args) {
+        if (debugSerial) {
+            debugSerial->printf(format, std::forward<Args>(args)...);
+        }
+    }
+
 private:
 	Stream *serial;
 	Stream *debugSerial;

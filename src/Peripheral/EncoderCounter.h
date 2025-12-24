@@ -22,29 +22,30 @@ protected:
 
   int8_t pinENA;
   int8_t pinENB;
+  bool lastState[2];
 
   uint32_t count[2];
-  bool lastState[2];
   
+  uint16_t encoderTimingTore = 5;
   MSTimer responseTimer;    //反应检测定时器，如果长时间未检测到信号变化，则表明编码器故障
-  int8_t encoderTiming;
+  int16_t encoderTiming;
   uint32_t lastUpdateTick;
 
 public:
   static constexpr uint8_t PeriType = PeripheralType::EncoderCounter;
   static constexpr uint8_t ENA = 0;
   static constexpr uint8_t ENB = 1;
-  static constexpr int8_t encoderTimingTore = 5;
   uint16_t &getReadWriteStateFlagRef(){
     return rwState;
   }
   uint16_t &getReadOnlyStateFlagRef(){
     return rState;
   }
-  EncoderCounter(const char *periCustomName, uint8_t rA, uint8_t rB) :
+  EncoderCounter(const char *periCustomName, uint8_t rA, uint8_t rB, uint16_t timingTore = 10) :
     BasicIndustrialPeripheral(PeriType),
     pinENA(rA),
     pinENB(rB),
+    encoderTimingTore(timingTore),
     responseTimer(2000),
     encoderTiming(0)
   {
@@ -111,10 +112,10 @@ public:
       }
       //检测编码器故障
       if(getAlarm() == AlarmType::NoAlarm){
-          if(encoderTiming > encoderTimingTore || encoderTiming < -encoderTimingTore){    //编码器误码故障
-              if(encoderTiming > encoderTimingTore){  //仅A相运动，B相无动作
+          if(abs(encoderTiming) > encoderTimingTore){    //编码器误码故障
+              if(encoderTiming > 0){  //仅A相运动，B相无动作
                   setAlarm(AlarmType::EncoderHardwareBPhaseAlarm);
-              }else if(encoderTiming < -encoderTimingTore){  //仅B相运动，A相无动作
+              }else if(encoderTiming < 0){  //仅B相运动，A相无动作
                   setAlarm(AlarmType::EncoderHardwareAPhaseAlarm);
               }
           }

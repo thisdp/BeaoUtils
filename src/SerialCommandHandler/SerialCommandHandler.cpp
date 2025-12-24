@@ -1,5 +1,41 @@
 ﻿#include "SerialCommandHandler.h"
 #include <stdlib.h>
+// 辅助函数：安全转换 string → long（无异常）
+static bool safeStrtol(const String& s, long& out, int base = 10) {
+    if (s.length() == 0) return false;
+    char* endptr = nullptr;
+    const char* cstr = s.c_str();
+    errno = 0;  // 必须清零！
+    long val = strtol(cstr, &endptr, base);
+    if (errno == ERANGE || endptr == cstr || *endptr != '\0') return false;
+    out = val;
+    return true;
+}
+
+// 辅助函数：安全转换 string → unsigned long
+static bool safeStrtoul(const String& s, unsigned long& out, int base = 10) {
+    if (s.length() == 0) return false;
+    char* endptr = nullptr;
+    const char* cstr = s.c_str();
+    errno = 0;
+    unsigned long val = strtoul(cstr, &endptr, base);
+    if (errno == ERANGE || endptr == cstr || *endptr != '\0') return false;
+    out = val;
+    return true;
+}
+
+// 辅助函数：安全转换 string → double（再转 float）
+static bool safeAtof(const String& s, float& out) {
+    if (s.length() == 0) return false;
+    char* endptr = nullptr;
+    const char* cstr = s.c_str();
+    errno = 0;
+    double val = strtod(cstr, &endptr);
+    if (errno == ERANGE || endptr == cstr || *endptr != '\0') return false;
+    out = static_cast<float>(val);
+    return true;
+}
+
 bool SerialCommand::hasCommand(){
 	return def != 0;
 }
@@ -80,6 +116,14 @@ void SerialCommandHandler::errorMessage(const char * parErrorMessage){
 	debugSerial->println(parErrorMessage);
 }
 
+Stream* SerialCommandHandler::getSerial(){
+	return serial;
+}
+
+Stream* SerialCommandHandler::getDebugSerial(){
+	return debugSerial;
+}
+
 void SerialCommandHandler::printCommandList(){
 	debugSerial->print("\n-= Available commands =-\n");
 	for (uint32_t i = 0; i <commandCount; i++){
@@ -124,12 +168,10 @@ void SerialCommandHandler::update(){
 		if(newChar == '\n'){
 			if(currentCommand.parseCommand(commandReadBuffer)){
 				if(processSerialCommand()){
-					debugSerial->print("Serial Command > ");
-					debugSerial->println(currentCommand.getCommandName());
+					debugSerial->printf("Serial Command > %s\n",currentCommand.getCommandName());
 					currentCommand.def->cbFunction(*this);
 				}else{
-					debugSerial->print("Unknown Serial Command > ");
-					debugSerial->println(commandReadBuffer);
+					debugSerial->printf("Unknown Serial Command > %s\n",commandReadBuffer.c_str());
 				}
 			}else{
 				debugSerial->println("Invalid Command");
@@ -155,44 +197,35 @@ bool SerialCommandHandler::processSerialCommand(){
 	return false;
 }
 
-bool SerialCommandHandler::getParameterInteger(int32_t index, int32_t &value){
-	if(!currentCommand.hasCommand()) return false;
-	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-#if defined(ESP32)
-	try {
-#endif
-	value = stol(currentCommand.blocks.at(index).c_str());
-#if defined(ESP32)
-	} catch (...) { return false; }
-#endif
-	return true;
+bool SerialCommandHandler::getParameterInteger(int32_t index, int32_t &value) {
+    if (!currentCommand.hasCommand()) return false;
+    if (index >= static_cast<int32_t>(currentCommand.blocks.size())) return false;
+    
+    long temp;
+    if (!safeStrtol(currentCommand.blocks.at(index), temp)) return false;
+    // 可加范围检查（可选）
+    if (temp < INT32_MIN || temp > INT32_MAX) return false;
+    value = static_cast<int32_t>(temp);
+    return true;
 }
 
-bool SerialCommandHandler::getParameterUnsignedInteger(int32_t index, uint32_t &value){
-	if(!currentCommand.hasCommand()) return false;
-	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-#if defined(ESP32)
-	try {
-#endif
-	value = stoul(currentCommand.blocks.at(index).c_str());
-#if defined(ESP32)
-	} catch (...) { return false; }
-#endif
-	return true;
+bool SerialCommandHandler::getParameterUnsignedInteger(int32_t index, uint32_t &value) {
+    if (!currentCommand.hasCommand()) return false;
+    if (index >= static_cast<int32_t>(currentCommand.blocks.size())) return false;
+    
+    unsigned long temp;
+    if (!safeStrtoul(currentCommand.blocks.at(index), temp)) return false;
+    // 检查是否超出 uint32_t 范围（防 ULONG_MAX > UINT32_MAX 的平台，如 64 位 ESP32）
+    if (temp > UINT32_MAX) return false;
+    value = static_cast<uint32_t>(temp);
+    return true;
 }
 
-
-bool SerialCommandHandler::getParameterFloat(int32_t index, float &value){
-	if(!currentCommand.hasCommand()) return false;
-	if(index >= ((int32_t)currentCommand.blocks.size())) return false;
-#if defined(ESP32)
-	try {
-#endif
-	value = atof(currentCommand.blocks.at(index).c_str());
-#if defined(ESP32)
-	} catch (...) { return false; }
-#endif
-	return true;
+bool SerialCommandHandler::getParameterFloat(int32_t index, float &value) {
+    if (!currentCommand.hasCommand()) return false;
+    if (index >= static_cast<int32_t>(currentCommand.blocks.size())) return false;
+    
+    return safeAtof(currentCommand.blocks.at(index), value);
 }
 
 bool SerialCommandHandler::getParameterChar(int32_t index, char &value){

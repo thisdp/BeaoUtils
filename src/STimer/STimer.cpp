@@ -36,6 +36,9 @@ bool STimerBase::stop(){
 bool STimerBase::isActivated(){
     return activated;
 }
+uint32_t STimerBase::getDuration(){
+    return duration;
+}
 uint32_t STimerBase::getPassedTime(){
     return getCurrentTime()-startTime;
 }

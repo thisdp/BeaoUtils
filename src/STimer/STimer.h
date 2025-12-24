@@ -12,6 +12,7 @@ public:
   bool isActivated();
   uint32_t getStartTime();
   uint32_t getPassedTime();
+  uint32_t getDuration();
   void setDuration(uint32_t tDuration);
   bool checkTimedOut();
   virtual uint32_t getCurrentTime() = 0;

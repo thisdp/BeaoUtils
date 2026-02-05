@@ -101,7 +101,7 @@ SerialCommandHandler::SerialCommandHandler(Stream *parSerial, Stream *parDebugSe
 
 bool SerialCommandHandler::addCommand(const char *cmd, const char * parDescription, SCP_Callback parFunction){
 	if (commandCount>=SCP_COMMAND_ARRAY_MAX_SIZE-1){
-		errorMessage("Array of commands is full");
+		printfln("[SerialCommandHandler Error]Array of commands is full");
 		return false;
 	}
 	commandsArray[commandCount].cmd = cmd;
@@ -112,8 +112,7 @@ bool SerialCommandHandler::addCommand(const char *cmd, const char * parDescripti
 }
 
 void SerialCommandHandler::errorMessage(const char * parErrorMessage){
-	debugSerial->print("[SCP ERROR]");
-	debugSerial->println(parErrorMessage);
+	printfln("[SCP ERROR] %s", parErrorMessage);
 }
 
 Stream* SerialCommandHandler::getSerial(){
@@ -125,24 +124,19 @@ Stream* SerialCommandHandler::getDebugSerial(){
 }
 
 void SerialCommandHandler::printCommandList(){
-	debugSerial->print("\n-= Available commands =-\n");
-	for (uint32_t i = 0; i <commandCount; i++){
-		debugSerial->write('\'');
-		debugSerial->print(commandsArray[i].cmd);
-		debugSerial->print("' :\t");
-		debugSerial->println(commandsArray[i].description);
-	}
-	debugSerial->println("-----------------------");
+	printfln("\n-= Available commands =-");
+	for (uint32_t i = 0; i <commandCount; i++)
+		printfln("'%s' :\t%s",commandsArray[i].cmd,commandsArray[i].description);
+	printfln("-----------------------");
 }
 
 void SerialCommandHandler::showCurrentCommand(bool showDescription){
 	if(!currentCommand.hasCommand()){
-		debugSerial->println("No Serial Command");
+		printfln("No Serial Command");
 		return;
 	}
-	debugSerial->print("Serial Command > ");
-	debugSerial->println(currentCommand.getCommandName());
-	if(showDescription) debugSerial->println(currentCommand.getCommandDescription());
+	printfln("Serial Command > %s", currentCommand.getCommandName());
+	if(showDescription) printfln(currentCommand.getCommandDescription());
 }
 
 void SerialCommandHandler::clearSerialCommand(){
@@ -168,13 +162,13 @@ void SerialCommandHandler::update(){
 		if(newChar == '\n'){
 			if(currentCommand.parseCommand(commandReadBuffer)){
 				if(processSerialCommand()){
-					debugSerial->printf("Serial Command > %s\n",currentCommand.getCommandName());
+					printfln("Serial Command > %s",currentCommand.getCommandName());
 					currentCommand.def->cbFunction(*this);
 				}else{
-					debugSerial->printf("Unknown Serial Command > %s\n",commandReadBuffer.c_str());
+					printfln("Unknown Serial Command > %s",commandReadBuffer.c_str());
 				}
 			}else{
-				debugSerial->println("Invalid Command");
+				printfln("Invalid Command");
 			}
 			commandReadBuffer = String("");
 			isReadingCommand = false;

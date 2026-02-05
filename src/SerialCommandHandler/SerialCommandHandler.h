@@ -57,11 +57,26 @@ public:
             debugSerial->printf(format, std::forward<Args>(args)...);
         }
     }
+    template<typename... Args>
+    void printfln(const char* format, Args&&... args) {
+        if (debugSerial) {
+            debugSerial->printf(format, std::forward<Args>(args)...);
+			debugSerial->print("\n");
+        }
+    }
 
     template<typename... Args>
     void printf(const __FlashStringHelper* format, Args&&... args) {
         if (debugSerial) {
             debugSerial->printf(format, std::forward<Args>(args)...);
+        }
+    }
+
+    template<typename... Args>
+    void printfln(const __FlashStringHelper* format, Args&&... args) {
+        if (debugSerial) {
+            debugSerial->printf(format, std::forward<Args>(args)...);
+			debugSerial->print("\n");
         }
     }
 
